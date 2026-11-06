@@ -1,0 +1,19 @@
+{
+  "minEvidence": 5,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.rounds"
+  ],
+  "minItems": {
+    "data.rounds": 2
+  },
+  "maxEstimatedRatio": 0.2,
+  "consistency": [
+    {
+      "id": "roundsOrdered",
+      "path": "data.rounds",
+      "rule": "date_ascending",
+      "note": "轮次必须按交割时间升序；同轮多次交割合并为一条"
+    }
+  ]
+}

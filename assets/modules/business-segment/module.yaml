@@ -1,0 +1,49 @@
+apiVersion: equity.module/v1
+id: builtin/business-segment
+name: 产品矩阵与技术路线
+version: 0.1.0
+kind: collect
+stageHint: business
+scope: company
+description: 梳理产品线、代际、收入构成、技术路线与扩产周期。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.identity
+    onMissing: block
+references:
+  - type: market.landscape
+outputs:
+  - type: business.segment
+    typeVersion: 1
+params:
+  - key: includeRevenueMix
+    type: boolean
+    default: true
+    label: 是否拆收入构成
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.8
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 24
+  tokensPerUnit: 80000
+  wallClockMinPerUnit: 40
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

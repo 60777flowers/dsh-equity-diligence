@@ -1,0 +1,51 @@
+apiVersion: equity.module/v1
+id: builtin/financing-history
+name: 融资历史与估值轨迹
+version: 0.1.0
+kind: collect
+stageHint: finance
+scope: company
+description: 梳理历轮融资、金额、估值、投资人、老股与回购线索。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.identity
+    onMissing: block
+  - type: ownership.chain
+    onMissing: block
+references:
+  - type: business.segment
+outputs:
+  - type: financing.history
+    typeVersion: 1
+params:
+  - key: includeRepurchase
+    type: boolean
+    default: true
+    label: 是否查回购条款
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 18
+  tokensPerUnit: 50000
+  wallClockMinPerUnit: 25
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

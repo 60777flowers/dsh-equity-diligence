@@ -1,0 +1,51 @@
+apiVersion: equity.module/v1
+id: builtin/tech-origin
+name: 技术来源、FTO 与商业秘密
+version: 0.1.0
+kind: verify
+stageHint: tech
+scope: company
+description: 核验技术来源、许可、FTO 线索与商业秘密诉讼。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: ip.portfolio
+    onMissing: block
+  - type: org.people
+    onMissing: block
+references:
+  - type: business.segment
+outputs:
+  - type: tech.origin
+    typeVersion: 1
+params:
+  - key: jurisdictions
+    type: string
+    default: CN,US,EP
+    label: 司法辖区
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 22
+  tokensPerUnit: 60000
+  wallClockMinPerUnit: 35
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

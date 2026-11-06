@@ -1,0 +1,53 @@
+apiVersion: equity.module/v1
+id: builtin/esg-ehs
+name: ESG、环保与安全生产
+version: 0.1.0
+kind: collect
+stageHint: risk
+scope: company
+description: 梳理环评、排污许可、能耗、碳与安全生产记录。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: business.segment
+    onMissing: block
+  - type: supply.capacity
+    onMissing: block
+references:
+  - type: regulatory.compliance
+outputs:
+  - type: esg.ehs
+    typeVersion: 1
+params:
+  - key: yearsBack
+    type: integer
+    default: 3
+    min: 1
+    max: 10
+    label: 回溯年限
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 16
+  tokensPerUnit: 45000
+  wallClockMinPerUnit: 25
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

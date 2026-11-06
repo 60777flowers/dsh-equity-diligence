@@ -1,0 +1,65 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.patents",
+    "data.trademarks",
+    "data.software",
+    "data.pledges"
+  ],
+  "minItems": {
+    "data.patents": 1
+  },
+  "sixStateFields": [
+    "data.patents[].status",
+    "data.patents[].filedAt",
+    "data.patents[].inventors",
+    "data.trademarks[].status",
+    "data.pledges[].pledgee"
+  ],
+  "maxEstimatedRatio": 0.1,
+  "consistency": [
+    {
+      "id": "patent-number-unique",
+      "kind": "unique",
+      "path": "data.patents[].number",
+      "onFail": "block"
+    },
+    {
+      "id": "patent-status-enum",
+      "kind": "enum",
+      "path": "data.patents[].status",
+      "values": [
+        "有效",
+        "审中",
+        "失效",
+        "撤回",
+        "驳回",
+        "期限届满",
+        "未缴年费",
+        "未披露"
+      ],
+      "onFail": "block"
+    },
+    {
+      "id": "pledge-linked-to-patent",
+      "kind": "subset_of",
+      "left": "data.pledges[].patent",
+      "right": "data.patents[].number",
+      "onFail": "block"
+    },
+    {
+      "id": "applicant-present",
+      "kind": "required_with",
+      "path": "data.patents[].applicant",
+      "when": "data.patents[].number",
+      "onFail": "block"
+    },
+    {
+      "id": "trademark-number-unique",
+      "kind": "unique",
+      "path": "data.trademarks[].number",
+      "onFail": "block"
+    }
+  ]
+}

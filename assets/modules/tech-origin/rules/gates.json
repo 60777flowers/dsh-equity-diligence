@@ -1,0 +1,73 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.origins",
+    "data.licenses",
+    "data.ftoRisks",
+    "data.tradeSecretCases"
+  ],
+  "minItems": {
+    "data.origins": 1
+  },
+  "sixStateFields": [
+    "data.origins[].origin",
+    "data.origins[].basis",
+    "data.licenses[].scope",
+    "data.licenses[].status",
+    "data.ftoRisks[].holder"
+  ],
+  "maxEstimatedRatio": 0.2,
+  "consistency": [
+    {
+      "id": "origin-enum",
+      "kind": "enum",
+      "path": "data.origins[].origin",
+      "values": [
+        "自研",
+        "引进",
+        "转化",
+        "逆向",
+        "合作研发",
+        "并购取得",
+        "员工自带",
+        "未披露"
+      ],
+      "onFail": "block"
+    },
+    {
+      "id": "fto-no-conclusion",
+      "kind": "banned_terms",
+      "path": "data.ftoRisks[].note",
+      "terms": [
+        "不侵权",
+        "侵权成立",
+        "构成侵权",
+        "规避可行",
+        "规避设计可行"
+      ],
+      "onFail": "block"
+    },
+    {
+      "id": "fto-clue-tagged",
+      "kind": "tag_required_all",
+      "path": "data.ftoRisks[].note",
+      "tag": "线索",
+      "onFail": "block"
+    },
+    {
+      "id": "license-scope-required",
+      "kind": "required_with",
+      "path": "data.licenses[].scope",
+      "when": "data.licenses[].licensor",
+      "onFail": "block"
+    },
+    {
+      "id": "case-number-required",
+      "kind": "required_with",
+      "path": "data.tradeSecretCases[].caseNo",
+      "when": "data.tradeSecretCases[].parties",
+      "onFail": "attention"
+    }
+  ]
+}

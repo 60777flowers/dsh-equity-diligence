@@ -1,0 +1,29 @@
+apiVersion: equity.playbook/v1
+id: quick-scan
+name: 48 小时初筛
+version: 1.0.0
+preset: quick
+targets:
+  scope: company
+  from: company.roster
+stages:
+  - { id: identity, name: 主体识别 }
+  - { id: ownership, name: 股权与控制 }
+  - { id: business, name: 业务与产业链 }
+  - { id: risk, name: 风险与合规 }
+  - { id: assessment, name: 红旗 }
+  - { id: delivery, name: 交付 }
+modules:
+  - { id: entity-resolution, use: builtin/entity-resolution@^0.1, stage: identity }
+  - { id: ownership-chain, use: builtin/ownership-chain@^0.1, stage: ownership }
+  - { id: investment-map, use: builtin/investment-map@^0.2, stage: ownership }
+  - { id: business-segment, use: builtin/business-segment@^0.1, stage: business }
+  - { id: customers-orders, use: builtin/customers-orders@^0.1, stage: business }
+  - { id: ip-portfolio, use: builtin/ip-portfolio@^0.1, stage: business }
+  - { id: legal-risk, use: builtin/legal-risk@^0.1, stage: risk }
+  - { id: regulatory-compliance, use: builtin/regulatory-compliance@^0.1, stage: risk }
+  - { id: red-flags, use: builtin/red-flags@^0.1, stage: assessment }
+  - { id: deliverable, use: builtin/deliverable@^0.1, stage: delivery }
+budget:
+  maxTokens: 24000000
+  maxWallClockMin: 480

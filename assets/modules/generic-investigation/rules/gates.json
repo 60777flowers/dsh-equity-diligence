@@ -1,0 +1,67 @@
+{
+  "minEvidence": 2,
+  "minCoverage": 0.8,
+  "requiredFields": ["data.question", "data.findings", "data.title", "data.markdown"],
+  "minItems": { "data.findings": 1 },
+  "maxEstimatedRatio": 0.2,
+  "consistency": [
+    {
+      "id": "materialClaimCoverage",
+      "kind": "coverage",
+      "field": "claims[materiality=material]",
+      "require": "evidenceLinks[role=supports]",
+      "minRatio": 1.0,
+      "onFail": "block",
+      "note": "material claim 证据覆盖必须 100%；缺证据的结论降级为 openQuestions"
+    },
+    {
+      "id": "findingHasEvidence",
+      "kind": "requiredFieldsWhen",
+      "field": "data.findings[]",
+      "required": ["claim", "evidenceIds"],
+      "onFail": "issue",
+      "note": "每条 findings 必须挂 evidenceIds；无证据的条目只能出现在 openQuestions"
+    },
+    {
+      "id": "markdownClaimRefsExist",
+      "kind": "refExists",
+      "field": "data.markdown",
+      "pattern": "cl_[A-Za-z0-9]+",
+      "target": "claims[].claimId",
+      "onFail": "block",
+      "note": "markdown 中引用的 claimId 必须存在于本底稿 claims；报告不得创造新事实"
+    },
+    {
+      "id": "notFoundHasLedger",
+      "kind": "requiresLedger",
+      "when": "claims[].status == 'not_disclosed_after_search'",
+      "require": "search.ledger.attempts",
+      "onFail": "block",
+      "note": "not_found 必须附 search.ledger 的尝试记录；无 ledger 只能写 not_reviewed"
+    },
+    {
+      "id": "estimatedHasDerivation",
+      "kind": "requiredFieldsWhen",
+      "field": "claims[].derivation",
+      "when": "claims[].status == 'estimated'",
+      "required": ["method", "inputs", "assumptions"],
+      "onFail": "block",
+      "note": "estimated 只允许分析型字段，且必须带方法与假设"
+    },
+    {
+      "id": "findingsMatchClaims",
+      "kind": "countMatches",
+      "fields": ["data.findings", "claims"],
+      "onFail": "warn",
+      "note": "findings 条数不应显著多于 claims；一结论多 claim 时按 claim 拆分"
+    },
+    {
+      "id": "noInvestmentAdvice",
+      "kind": "forbiddenText",
+      "fields": ["data.markdown", "data.findings[].claim"],
+      "forbidden": ["建议投资", "不建议投资", "估值偏低", "估值偏高", "推荐买入"],
+      "onFail": "block",
+      "note": "本模块只做事实调查，不输出投资建议与估值结论"
+    }
+  ]
+}

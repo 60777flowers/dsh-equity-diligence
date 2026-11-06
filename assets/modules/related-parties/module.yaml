@@ -1,0 +1,52 @@
+apiVersion: equity.module/v1
+id: builtin/related-parties
+name: 关联方与关联交易
+version: 0.1.0
+kind: collect
+stageHint: ownership
+scope: company
+description: 梳理关联方清单、关联交易、资金占用与买卖重叠。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.identity
+    onMissing: block
+  - type: ownership.chain
+    onMissing: block
+references:
+  - type: valuechain.parties
+  - type: supply.capacity
+outputs:
+  - type: related.parties
+    typeVersion: 1
+params:
+  - key: includeExecutives
+    type: boolean
+    default: true
+    label: 是否含董监高关联方
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 18
+  tokensPerUnit: 60000
+  wallClockMinPerUnit: 30
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

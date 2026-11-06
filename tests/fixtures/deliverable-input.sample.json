@@ -1,0 +1,1320 @@
+{
+  "meta": {
+    "projectId": "eq_sample_0001",
+    "projectName": "示例科技 · 公开信息调查（构建器样例）",
+    "targetName": "示例科技",
+    "targetCode": "000000",
+    "clientName": "示例委托方",
+    "asOf": "2026-09-30",
+    "period": "2025A",
+    "currency": "CNY",
+    "perimeter": "合并口径，未特别说明；金额单位：人民币元（示例）",
+    "accountingStandard": "CAS",
+    "generatedAt": "2026-11-07T00:00:00+08:00",
+    "template": "standard",
+    "partial": false,
+    "staleCount": 0,
+    "rejectedCount": 0,
+    "banner": "示例数据：本文件为 Python 构建器测试样例，公司名、比例、金额、日期均为占位示例，不对应任何真实主体。本报告基于公开信息，不构成投资建议。"
+  },
+  "summary": {
+    "title": "示例科技 · 公开信息调查报告（示例数据）",
+    "subtitle": "尽调前公开信息调查 / 2026-11-07 / 示例数据",
+    "findings": [
+      {
+        "findingId": "F01",
+        "fact": "示例科技通过直接投资平台「示例科技（直接投资平台）」持有「长瑞示例」21.50% 股权，为第一大股东。",
+        "impact": "可施加重大影响但未构成控制，董事会席位与一致行动安排需在 DD 中确认。",
+        "evidenceStrength": "A / 已核验 / 双源",
+        "materiality": "material",
+        "nextStep": "调取长瑞示例最新章程与股东名册，确认表决权安排。",
+        "claimId": "cl_0001",
+        "artifactId": "art_0002"
+      },
+      {
+        "findingId": "F02",
+        "fact": "「长瑞示例」注册资本在工商登记与公司官网披露中存在 12,000.00 万元与 11,000.00 万元两个口径。",
+        "impact": "影响出资比例与穿透计算，需以工商底册为准。",
+        "evidenceStrength": "B / 部分核验 / 存在冲突",
+        "materiality": "material",
+        "nextStep": "以登记机关出具的档案为准，记录冲突组与取舍理由。",
+        "claimId": "cl_0007",
+        "artifactId": "art_0002"
+      },
+      {
+        "findingId": "F03",
+        "fact": "「星澜示例」通过海外平台间接持股，公开信息仅能确认「≥ 33.34%」的下限。",
+        "impact": "穿透比例偏低，不能据此判断控制关系。",
+        "evidenceStrength": "C / 未核验 / 单源",
+        "materiality": "attention",
+        "nextStep": "在 DD 中取得海外主体注册资料与穿透股权表。",
+        "claimId": "cl_0006",
+        "artifactId": "art_0004"
+      },
+      {
+        "findingId": "F04",
+        "fact": "示例科技 2025A 营业收入 123,400.00 万元（CNY），毛利率 35.00%（示例口径）。",
+        "impact": "毛利率高于同环节中位数，需核对收入确认与成本归集口径。",
+        "evidenceStrength": "B / 已核验 / 单源",
+        "materiality": "material",
+        "nextStep": "取得审计报告与收入明细，核对前五大客户。",
+        "claimId": "cl_0003",
+        "artifactId": "art_0005"
+      },
+      {
+        "findingId": "F05",
+        "fact": "「长瑞示例」存在 2 起买卖合同纠纷（示例），一审未结，涉案金额未披露。",
+        "impact": "可能形成或有负债，需评估对交割的影响。",
+        "evidenceStrength": "B / 已核验 / 单源",
+        "materiality": "attention",
+        "nextStep": "取得裁判文书与代理律师意见，确认金额与和解可能。",
+        "claimId": "cl_0008",
+        "artifactId": "art_0006"
+      },
+      {
+        "findingId": "F06",
+        "fact": "「星澜示例」产品为标准件，公开信息未见与委托方技术的供应关系。",
+        "impact": "业务协同空间有限，合作优先级下调。",
+        "evidenceStrength": "C / 部分核验 / 单源",
+        "materiality": "context",
+        "nextStep": "在 DD 中确认客户结构与产品型号清单。",
+        "claimId": "cl_0009",
+        "artifactId": "art_0003"
+      }
+    ],
+    "redFlags": [
+      {
+        "level": "material",
+        "rule": "T2",
+        "desc": "注册资本存在两个口径，影响出资比例与穿透计算（示例）。",
+        "action": "核对是否已披露、交易方向/金额/期间/定价/审批。",
+        "claimId": "cl_0007"
+      },
+      {
+        "level": "attention",
+        "rule": "T7",
+        "desc": "子公司存在未结诉讼，涉案金额未披露（示例）。",
+        "action": "取得裁判文书与或有负债清单。",
+        "claimId": "cl_0008"
+      }
+    ],
+    "gaps": [
+      {
+        "topic": "完整股东名册",
+        "question": "长瑞示例截至 2026-09-30 的全部股东及出资比例是多少？",
+        "why": "决定第一大股东认定与穿透合计是否接近 100%。",
+        "priority": "high",
+        "claimId": "cl_0001"
+      },
+      {
+        "topic": "海外主体穿透",
+        "question": "星澜示例海外平台的上一层股东与最终受益人是谁？",
+        "why": "公开信息只能确认下限，无法判断控制关系。",
+        "priority": "high",
+        "claimId": "cl_0006"
+      },
+      {
+        "topic": "诉讼金额",
+        "question": "2 起买卖合同纠纷的涉案金额、进展与和解条件？",
+        "why": "可能形成或有负债，影响估值与交割条件。",
+        "priority": "medium",
+        "claimId": "cl_0008"
+      }
+    ],
+    "limitations": [
+      "仅使用公开信息，未取得企业内部资料。",
+      "部分比例来自间接推算，已标注为下限值或估算值。",
+      "示例数据不可用于任何真实投资决策。"
+    ],
+    "sources": [
+      {
+        "evidenceId": "ev_0001",
+        "title": "示例科技股份有限公司 2025 年年度报告（示例）",
+        "url": "https://example.invalid/disclosure/2025-annual",
+        "sourceTier": "announcement",
+        "asOf": "2026-04-28"
+      },
+      {
+        "evidenceId": "ev_0002",
+        "title": "长瑞示例 工商登记信息（示例）",
+        "url": "https://example.invalid/registry/changrui",
+        "sourceTier": "registry",
+        "asOf": "2026-09-30"
+      },
+      {
+        "evidenceId": "ev_0003",
+        "title": "长瑞示例 股东名册摘要（示例）",
+        "url": "https://example.invalid/disclosure/changrui-shareholders",
+        "sourceTier": "company",
+        "asOf": "2026-08-15"
+      }
+    ],
+    "disclaimer": "本报告仅基于公开信息整理，不构成投资建议，也不能替代现场 DD、法律尽职调查、审计与估值。示例数据不对应任何真实主体。"
+  },
+  "artifacts": [
+    {
+      "artifactId": "art_0001",
+      "type": "company.identity",
+      "subjectId": "co_example_target",
+      "subjectName": "示例科技",
+      "partitionKey": "_default",
+      "status": "verified",
+      "revision": 1,
+      "contentHash": "sha256:3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a",
+      "asOf": "2026-09-30",
+      "data": {
+        "legalName": "示例科技股份有限公司",
+        "code": "000000",
+        "domicile": "示例省示例市（示例）"
+      },
+      "claims": [
+        "cl_0001"
+      ],
+      "evidenceIds": [
+        "ev_0001",
+        "ev_0002"
+      ],
+      "flags": [],
+      "openQuestions": []
+    },
+    {
+      "artifactId": "art_0002",
+      "type": "ownership.chain",
+      "subjectId": "co_example_target",
+      "subjectName": "示例科技",
+      "partitionKey": "_default",
+      "status": "verified",
+      "revision": 2,
+      "contentHash": "sha256:4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+      "asOf": "2026-09-30",
+      "data": {
+        "layers": [],
+        "ubo": [],
+        "control": []
+      },
+      "claims": [
+        "cl_0001",
+        "cl_0007"
+      ],
+      "evidenceIds": [
+        "ev_0002",
+        "ev_0003",
+        "ev_0005"
+      ],
+      "flags": [
+        "registered_capital_conflict"
+      ],
+      "openQuestions": [
+        "完整股东名册未取得"
+      ]
+    },
+    {
+      "artifactId": "art_0003",
+      "type": "investment.map",
+      "subjectId": "co_example_target",
+      "subjectName": "示例科技",
+      "partitionKey": "P01",
+      "status": "verified",
+      "revision": 1,
+      "contentHash": "sha256:5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c",
+      "asOf": "2026-09-30",
+      "data": {
+        "platformId": "P01",
+        "name": "示例科技（直接投资平台）",
+        "category": "1",
+        "role": "直接投资"
+      },
+      "claims": [
+        "cl_0001",
+        "cl_0009"
+      ],
+      "evidenceIds": [
+        "ev_0003",
+        "ev_0006"
+      ],
+      "flags": [],
+      "openQuestions": []
+    },
+    {
+      "artifactId": "art_0004",
+      "type": "investment.map",
+      "subjectId": "co_example_target",
+      "subjectName": "示例科技",
+      "partitionKey": "P02",
+      "status": "verified",
+      "revision": 1,
+      "contentHash": "sha256:6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d",
+      "asOf": "2026-09-30",
+      "data": {
+        "platformId": "P02",
+        "name": "示例创投基金（合作基金 GP）",
+        "category": "2",
+        "role": "合作基金-GP"
+      },
+      "claims": [
+        "cl_0006"
+      ],
+      "evidenceIds": [
+        "ev_0005",
+        "ev_0006"
+      ],
+      "flags": [],
+      "openQuestions": []
+    },
+    {
+      "artifactId": "art_0005",
+      "type": "financials.public",
+      "subjectId": "co_example_target",
+      "subjectName": "示例科技",
+      "partitionKey": "FY2025",
+      "status": "verified",
+      "revision": 1,
+      "contentHash": "sha256:7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+      "asOf": "2026-04-28",
+      "data": {
+        "revenue": 1234000000,
+        "grossMargin": 35.0,
+        "netProfit": 86000000
+      },
+      "claims": [
+        "cl_0003",
+        "cl_0005"
+      ],
+      "evidenceIds": [
+        "ev_0001",
+        "ev_0007"
+      ],
+      "flags": [],
+      "openQuestions": []
+    },
+    {
+      "artifactId": "art_0006",
+      "type": "risk.redflags",
+      "subjectId": "co_example_target",
+      "subjectName": "示例科技",
+      "partitionKey": "_default",
+      "status": "draft",
+      "revision": 1,
+      "contentHash": "sha256:8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f",
+      "asOf": "2026-09-30",
+      "data": {
+        "flags": [],
+        "ddRequests": []
+      },
+      "claims": [
+        "cl_0008",
+        "cl_0009"
+      ],
+      "evidenceIds": [
+        "ev_0008"
+      ],
+      "flags": [
+        "litigation_open"
+      ],
+      "openQuestions": [
+        "诉讼金额未披露"
+      ]
+    },
+    {
+      "artifactId": "art_0007",
+      "type": "dd.request_list",
+      "subjectId": "prj_sample_0001",
+      "subjectName": "示例科技 · 公开信息调查",
+      "partitionKey": "_default",
+      "status": "verified",
+      "revision": 1,
+      "contentHash": "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
+      "asOf": "2026-09-30",
+      "data": {
+        "items": [
+          {
+            "id": "DD-01",
+            "topic": "股东名册",
+            "question": "提供截至 2026-09-30 的完整股东名册与出资凭证。",
+            "why": "确认第一大股东与穿透合计。",
+            "priority": "high",
+            "owner": "委托方",
+            "status": "已提出"
+          },
+          {
+            "id": "DD-02",
+            "topic": "海外架构",
+            "question": "提供海外平台注册证书、股东登记与穿透表。",
+            "why": "公开信息只能确认下限。",
+            "priority": "high",
+            "owner": "委托方",
+            "status": "已提出"
+          },
+          {
+            "id": "DD-03",
+            "topic": "诉讼",
+            "question": "提供 2 起买卖合同纠纷的起诉状、判决与和解文件。",
+            "why": "评估或有负债。",
+            "priority": "medium",
+            "owner": "标的公司",
+            "status": "待提出"
+          },
+          {
+            "id": "DD-04",
+            "topic": "财务",
+            "question": "提供 2025 年度审计报告与收入成本明细。",
+            "why": "核对收入确认与毛利率口径。",
+            "priority": "high",
+            "owner": "标的公司",
+            "status": "待提出"
+          }
+        ]
+      },
+      "claims": [],
+      "evidenceIds": [
+        "ev_0001"
+      ],
+      "flags": [],
+      "openQuestions": []
+    },
+    {
+      "artifactId": "art_0008",
+      "type": "report.deliverable",
+      "subjectId": "prj_sample_0001",
+      "subjectName": "示例科技 · 公开信息调查",
+      "partitionKey": "_default",
+      "status": "verified",
+      "revision": 1,
+      "contentHash": "sha256:b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+      "asOf": "2026-09-30",
+      "data": {
+        "files": [],
+        "summaryFindings": [],
+        "qa": {},
+        "signoff": {}
+      },
+      "claims": [],
+      "evidenceIds": [],
+      "flags": [],
+      "openQuestions": []
+    }
+  ],
+  "claims": [
+    {
+      "claimId": "cl_0001",
+      "artifactId": "art_0002",
+      "artifactRevision": 2,
+      "artifactContentHash": "sha256:4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+      "subjectId": "co_example_001",
+      "predicate": "largest_shareholder_pct",
+      "value": 21.5,
+      "unit": "percent",
+      "status": "found",
+      "materiality": "material",
+      "note": "长瑞示例第一大股东为示例科技（直接投资平台）。",
+      "evidenceIds": [
+        "ev_0002",
+        "ev_0003"
+      ]
+    },
+    {
+      "claimId": "cl_0002",
+      "artifactId": "art_0002",
+      "artifactRevision": 2,
+      "artifactContentHash": "sha256:4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+      "subjectId": "co_example_001",
+      "predicate": "top5_shareholder_pct",
+      "value": 78.2,
+      "unit": "percent",
+      "status": "found",
+      "materiality": "material",
+      "note": "",
+      "evidenceIds": [
+        "ev_0003"
+      ]
+    },
+    {
+      "claimId": "cl_0003",
+      "artifactId": "art_0005",
+      "artifactRevision": 1,
+      "artifactContentHash": "sha256:7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+      "subjectId": "co_example_001",
+      "predicate": "gross_margin",
+      "value": 32.0,
+      "unit": "percent",
+      "status": "found",
+      "materiality": "material",
+      "note": "示例口径，未剔除运费。",
+      "evidenceIds": [
+        "ev_0001"
+      ]
+    },
+    {
+      "claimId": "cl_0004",
+      "artifactId": "art_0002",
+      "artifactRevision": 2,
+      "artifactContentHash": "sha256:4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+      "subjectId": "co_example_001",
+      "predicate": "shareholder_count",
+      "value": 12,
+      "unit": "count",
+      "status": "found",
+      "materiality": "attention",
+      "note": "",
+      "evidenceIds": [
+        "ev_0003"
+      ]
+    },
+    {
+      "claimId": "cl_0005",
+      "artifactId": "art_0005",
+      "artifactRevision": 1,
+      "artifactContentHash": "sha256:7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+      "subjectId": "co_example_001",
+      "predicate": "total_funding",
+      "value": 125000000,
+      "unit": "CNY",
+      "status": "found",
+      "materiality": "material",
+      "note": "历次融资合计（示例）。",
+      "evidenceIds": [
+        "ev_0007"
+      ]
+    },
+    {
+      "claimId": "cl_0006",
+      "artifactId": "art_0004",
+      "artifactRevision": 1,
+      "artifactContentHash": "sha256:6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d",
+      "subjectId": "co_example_002",
+      "predicate": "overseas_indirect_stake",
+      "value": "≥ 33.34%",
+      "unit": "percent",
+      "status": "lower_bound",
+      "materiality": "attention",
+      "note": "仅能确认下限，海外穿透表未取得。",
+      "evidenceIds": [
+        "ev_0005"
+      ]
+    },
+    {
+      "claimId": "cl_0007",
+      "artifactId": "art_0002",
+      "artifactRevision": 2,
+      "artifactContentHash": "sha256:4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+      "subjectId": "co_example_001",
+      "predicate": "registered_capital",
+      "value": "12,000.00 万元（CNY）",
+      "unit": "CNY",
+      "status": "conflict",
+      "materiality": "material",
+      "note": "工商登记 12,000.00 万元；公司官网 11,000.00 万元。",
+      "evidenceIds": [
+        "ev_0002",
+        "ev_0004"
+      ]
+    },
+    {
+      "claimId": "cl_0008",
+      "artifactId": "art_0006",
+      "artifactRevision": 1,
+      "artifactContentHash": "sha256:8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f8f",
+      "subjectId": "co_example_001",
+      "predicate": "litigation_status",
+      "value": "2 起买卖合同纠纷（示例，一审未结）",
+      "unit": "text",
+      "status": "pending_dd",
+      "materiality": "material",
+      "note": "涉案金额未披露，待 DD 取得裁判文书。",
+      "evidenceIds": [
+        "ev_0008"
+      ]
+    },
+    {
+      "claimId": "cl_0009",
+      "artifactId": "art_0003",
+      "artifactRevision": 1,
+      "artifactContentHash": "sha256:5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c",
+      "subjectId": "co_example_002",
+      "predicate": "tech_relevance",
+      "value": "中等偏高：仅展会接触，尚无供应关系",
+      "unit": "text",
+      "status": "estimated",
+      "materiality": "context",
+      "note": "基于产品型号与公开客户结构的推断。",
+      "evidenceIds": [
+        "ev_0006"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "evidenceId": "ev_0001",
+      "url": "https://example.invalid/disclosure/2025-annual",
+      "title": "示例科技股份有限公司 2025 年年度报告（示例）",
+      "quote": "本年度实现营业收入 123,400.00 万元（示例）。",
+      "locator": "p.12 ¶3",
+      "sourceTier": "announcement",
+      "sourceAuthority": "A",
+      "verificationStatus": "verified",
+      "asOf": "2026-04-28",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "evidenceId": "ev_0002",
+      "url": "https://example.invalid/registry/changrui",
+      "title": "长瑞示例 工商登记信息（示例）",
+      "quote": "注册资本 12,000.00 万元人民币（示例）。",
+      "locator": "登记信息第 4 项",
+      "sourceTier": "registry",
+      "sourceAuthority": "A",
+      "verificationStatus": "verified",
+      "asOf": "2026-09-30",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "evidenceId": "ev_0003",
+      "url": "https://example.invalid/disclosure/changrui-shareholders",
+      "title": "长瑞示例 股东名册摘要（示例）",
+      "quote": "示例科技（直接投资平台）持股 21.50%，前五大股东合计 78.20%（示例）。",
+      "locator": "附件 2 表 1",
+      "sourceTier": "company",
+      "sourceAuthority": "B",
+      "verificationStatus": "verified",
+      "asOf": "2026-08-15",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "evidenceId": "ev_0004",
+      "url": "https://example.invalid/media/changrui-profile",
+      "title": "长瑞示例 公司简介（媒体转载，示例）",
+      "quote": "公司注册资本 11,000.00 万元（示例）。",
+      "locator": "正文第 2 段",
+      "sourceTier": "media",
+      "sourceAuthority": "C",
+      "verificationStatus": "partial",
+      "asOf": "2026-06-01",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "evidenceId": "ev_0005",
+      "url": "https://example.invalid/registry/xinglan-overseas",
+      "title": "星澜示例 海外平台注册信息（示例）",
+      "quote": "示例海外平台持有星澜示例 33.34% 以上权益（示例）。",
+      "locator": "p.2",
+      "sourceTier": "registry",
+      "sourceAuthority": "B",
+      "verificationStatus": "partial",
+      "asOf": "2026-07-10",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "evidenceId": "ev_0006",
+      "url": "https://example.invalid/company/xinglan-products",
+      "title": "星澜示例 产品目录（示例）",
+      "quote": "产品以标准封装件为主（示例）。",
+      "locator": "产品页",
+      "sourceTier": "company",
+      "sourceAuthority": "C",
+      "verificationStatus": "verified",
+      "asOf": "2026-09-01",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    {
+      "evidenceId": "ev_0007",
+      "url": "https://example.invalid/database/financing",
+      "title": "一级市场融资数据库条目（示例）",
+      "quote": "长瑞示例历次融资合计约 1.25 亿元（示例）。",
+      "locator": "记录 CHR-001",
+      "sourceTier": "database",
+      "sourceAuthority": "B",
+      "verificationStatus": "verified",
+      "asOf": "2026-09-30",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "evidenceId": "ev_0008",
+      "url": "https://example.invalid/court/changrui-cases",
+      "title": "裁判文书检索结果（示例）",
+      "quote": "买卖合同纠纷 2 起，一审未结（示例）。",
+      "locator": "检索结果第 1 页",
+      "sourceTier": "court",
+      "sourceAuthority": "A",
+      "verificationStatus": "verified",
+      "asOf": "2026-09-30",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+    }
+  ],
+  "entities": [
+    {
+      "entityId": "co_example_001",
+      "name": "长瑞示例",
+      "platformId": "P01",
+      "platformName": "示例科技（直接投资平台）",
+      "platformCategory": "1",
+      "path": "示例科技 → 示例科技（直接投资平台）→ 长瑞示例；示例科技 → 示例创投基金（合作基金 GP）→ 长瑞示例",
+      "ownership": "直接 21.50%；经基金间接 12.30%",
+      "fields": {
+        "latest_funding_round": {
+          "status": "found",
+          "value": "B+ 轮（2026-06，示例），金额 3.50 亿元（CNY）",
+          "note": ""
+        },
+        "largest_shareholder_pct": {
+          "status": "found",
+          "value": 21.5,
+          "note": ""
+        },
+        "top5_pct": {
+          "status": "found",
+          "value": 78.2,
+          "note": ""
+        },
+        "shareholder_count": {
+          "status": "found",
+          "value": 12,
+          "note": ""
+        },
+        "total_funding": {
+          "status": "found",
+          "value": 125000000,
+          "note": "CNY，历次融资合计（示例）"
+        }
+      },
+      "claimRefs": {
+        "largest_shareholder_pct": "cl_0001",
+        "top5_pct": "cl_0002",
+        "gross_margin": "cl_0003",
+        "shareholder_count": "cl_0004",
+        "total_funding": "cl_0005"
+      }
+    },
+    {
+      "entityId": "co_example_002",
+      "name": "星澜示例",
+      "platformId": "P01",
+      "platformName": "示例科技（直接投资平台）",
+      "platformCategory": "1",
+      "path": "示例科技 → 示例科技（直接投资平台）→ 星澜示例；示例科技 → 示例创投基金（合作基金 GP）→ 星澜示例",
+      "ownership": "直接 8.60%；经海外平台间接 ≥ 33.34%（下限）",
+      "fields": {
+        "latest_funding_round": {
+          "status": "not_disclosed_after_search",
+          "value": null,
+          "note": "检索 6 组关键词未获披露"
+        },
+        "largest_shareholder_pct": {
+          "status": "lower_bound",
+          "value": "≥ 33.34%",
+          "note": "海外穿透表未取得"
+        },
+        "shareholder_count": {
+          "status": "pending_dd",
+          "value": null,
+          "note": "境外主体，公开渠道不披露"
+        },
+        "gross_margin": {
+          "status": "not_reviewed",
+          "value": null,
+          "note": ""
+        }
+      },
+      "claimRefs": {
+        "overseas_indirect_stake": "cl_0006"
+      }
+    },
+    {
+      "entityId": "co_example_003",
+      "name": "禾创示例",
+      "platformId": "P02",
+      "platformName": "示例创投基金（合作基金 GP）",
+      "platformCategory": "2",
+      "path": "示例科技 → 示例创投基金（合作基金 GP）→ 禾创示例；示例科技 → 王示例家族持股平台 → 禾创示例",
+      "ownership": "经基金间接 15.00%",
+      "fields": {
+        "latest_funding_round": {
+          "status": "found",
+          "value": "A 轮（2025-11，示例），金额 8,000.00 万元（CNY）",
+          "note": ""
+        },
+        "largest_shareholder_pct": {
+          "status": "conflict",
+          "value": "26.00% / 24.00%",
+          "note": "工商与官网口径不一致"
+        },
+        "shareholder_count": {
+          "status": "found",
+          "value": 9,
+          "note": ""
+        },
+        "total_funding": {
+          "status": "found",
+          "value": "累计融资约 3.20 亿元（CNY）",
+          "note": ""
+        }
+      },
+      "claimRefs": {}
+    }
+  ],
+  "sevenN": {
+    "fixedSheets": [
+      "1-直接投资",
+      "2-合作基金-GP",
+      "3-合作基金-主导LP",
+      "4-合作基金-财务LP",
+      "5-海外平台",
+      "6-合资公司",
+      "7-国内基地"
+    ],
+    "rows": [
+      {
+        "sheet": "1-直接投资",
+        "platform": {
+          "name": "示例科技（直接投资平台）",
+          "role": "直接投资",
+          "structure": "示例科技 100% 持股（示例）",
+          "positioning": "存储封测环节的战略卡位，优先供应链协同",
+          "note": "2026-03-15"
+        },
+        "entity": {
+          "name": "长瑞示例",
+          "latestFunding": "B+ 轮（2026-06，示例），金额 3.50 亿元（CNY）",
+          "largestShareholderPct": 21.5,
+          "top5Pct": 78.2,
+          "shareholderCount": 12,
+          "founderControl": "否",
+          "founderBackground": "创始团队来自示例院所封测团队（示例）",
+          "industryChain": "封装测试（中游）",
+          "expansionCycle": "18 个月（示例）",
+          "prosperity": "中性偏上（示例口径）",
+          "grossMargin": 32.0,
+          "ranking": "国内第 6（示例口径，estimated）",
+          "techRelevance": "合作潜力：高——已进入送样验证，具备供应链导入可能",
+          "totalFunding": 125000000,
+          "assessment": "适合投资/业务合作：可先做供应链导入",
+          "dataQuality": "工商与股东名册双源一致（示例）"
+        },
+        "claimRefs": {
+          "largestShareholderPct": "cl_0001",
+          "grossMargin": "cl_0003"
+        }
+      },
+      {
+        "sheet": "1-直接投资",
+        "platform": {
+          "name": "示例科技（直接投资平台）",
+          "role": "直接投资",
+          "structure": "示例科技 100% 持股（示例）",
+          "positioning": "存储封测环节的战略卡位，优先供应链协同",
+          "note": "2026-04-02 签署增资协议（示例）"
+        },
+        "entity": {
+          "name": "星澜示例",
+          "latestFunding": null,
+          "largestShareholderPct": "≥ 33.34%",
+          "top5Pct": null,
+          "shareholderCount": null,
+          "founderControl": "待核",
+          "founderBackground": "未披露（境外主体）",
+          "industryChain": "封装基板（上游）",
+          "expansionCycle": "24 个月（示例）",
+          "prosperity": "偏弱（示例口径）",
+          "grossMargin": "32.00-35.00%",
+          "ranking": null,
+          "techRelevance": "中等偏高：仅展会接触，尚无供应关系",
+          "totalFunding": "仅披露轮次，未披露金额（USD 基金）",
+          "assessment": "不适合投资合作（关联度不足，待观察）",
+          "dataQuality": "仅单一来源，比例取下限（示例）"
+        },
+        "claimRefs": {
+          "overseas_indirect_stake": "cl_0006"
+        }
+      },
+      {
+        "sheet": "2-合作基金-GP",
+        "platform": {
+          "name": "示例创投基金（合作基金 GP）",
+          "role": "合作基金-GP",
+          "structure": "示例科技 40% / 外部 LP 60%（示例）",
+          "positioning": "以基金方式覆盖封测与设备环节，GP 由示例科技委派",
+          "note": "2025-11-20 基金二期出资（示例）"
+        },
+        "entity": {
+          "name": "长瑞示例",
+          "latestFunding": "B+ 轮（2026-06，示例），金额 3.50 亿元（CNY）",
+          "largestShareholderPct": 21.5,
+          "top5Pct": 78.2,
+          "shareholderCount": 12,
+          "founderControl": "否",
+          "founderBackground": "创始团队来自示例院所封测团队（示例）",
+          "industryChain": "封装测试（中游）",
+          "expansionCycle": "18 个月（示例）",
+          "prosperity": "中性偏上（示例口径）",
+          "grossMargin": 32.0,
+          "ranking": "国内第 6（示例口径，estimated）",
+          "techRelevance": "合作潜力：高——已进入送样验证，具备供应链导入可能",
+          "totalFunding": 125000000,
+          "assessment": "适合投资/业务合作：可先做供应链导入",
+          "dataQuality": "工商与股东名册双源一致（示例）"
+        },
+        "claimRefs": {
+          "largestShareholderPct": "cl_0001"
+        }
+      },
+      {
+        "sheet": "2-合作基金-GP",
+        "platform": {
+          "name": "示例创投基金（合作基金 GP）",
+          "role": "合作基金-GP",
+          "structure": "示例科技 40% / 外部 LP 60%（示例）",
+          "positioning": "以基金方式覆盖封测与设备环节，GP 由示例科技委派",
+          "note": "2025-12-08 完成首次交割（示例）"
+        },
+        "entity": {
+          "name": "星澜示例",
+          "latestFunding": null,
+          "largestShareholderPct": "≥ 33.34%",
+          "top5Pct": null,
+          "shareholderCount": null,
+          "founderControl": "待核",
+          "founderBackground": "未披露（境外主体）",
+          "industryChain": "封装基板（上游）",
+          "expansionCycle": "24 个月（示例）",
+          "prosperity": "偏弱（示例口径）",
+          "grossMargin": "32.00-35.00%",
+          "ranking": null,
+          "techRelevance": "中等偏高：仅展会接触，尚无供应关系",
+          "totalFunding": "仅披露轮次，未披露金额（USD 基金）",
+          "assessment": "不适合投资合作（关联度不足，待观察）",
+          "dataQuality": "仅单一来源，比例取下限（示例）"
+        },
+        "claimRefs": {
+          "overseas_indirect_stake": "cl_0006"
+        }
+      },
+      {
+        "sheet": "2-合作基金-GP",
+        "platform": {
+          "name": "示例创投基金（合作基金 GP）",
+          "role": "合作基金-GP",
+          "structure": "示例科技 40% / 外部 LP 60%（示例）",
+          "positioning": "以基金方式覆盖封测与设备环节，GP 由示例科技委派",
+          "note": "2026-05-30 追加投资（示例）"
+        },
+        "entity": {
+          "name": "禾创示例",
+          "latestFunding": "A 轮（2025-11，示例），金额 8,000.00 万元（CNY）",
+          "largestShareholderPct": "26.00% / 24.00%（口径冲突）",
+          "top5Pct": 66.5,
+          "shareholderCount": 9,
+          "founderControl": "是",
+          "founderBackground": "创始人曾任示例上市公司封装事业部负责人（示例）",
+          "industryChain": "封装设备（上游）",
+          "expansionCycle": "12 个月（示例）",
+          "prosperity": "偏强（示例口径）",
+          "grossMargin": 42.5,
+          "ranking": "国内第 3（示例口径）",
+          "techRelevance": "高潜力：同处存储封测环节",
+          "totalFunding": "累计融资约 3.20 亿元（CNY）",
+          "assessment": "供应链导入型合作",
+          "dataQuality": "注册资本存在两个口径，待工商档案确认（示例）"
+        },
+        "claimRefs": {
+          "largestShareholderPct": "cl_0001"
+        }
+      },
+      {
+        "sheet": "8-王示例家族",
+        "platform": {
+          "name": "王示例家族持股平台",
+          "role": "家族平台（王示例家族）",
+          "structure": "王示例家族成员合计持有 100%（示例）",
+          "positioning": "家族资产配置，偏好中后期项目",
+          "note": "2026-01-10 完成备案（示例）"
+        },
+        "entity": {
+          "name": "长瑞示例",
+          "latestFunding": "B+ 轮（2026-06，示例），金额 3.50 亿元（CNY）",
+          "largestShareholderPct": 21.5,
+          "top5Pct": 78.2,
+          "shareholderCount": 12,
+          "founderControl": "否",
+          "founderBackground": "创始团队来自示例院所封测团队（示例）",
+          "industryChain": "封装测试（中游）",
+          "expansionCycle": "18 个月（示例）",
+          "prosperity": "中性偏上（示例口径）",
+          "grossMargin": 32.0,
+          "ranking": "国内第 6（示例口径，estimated）",
+          "techRelevance": "合作潜力：高——已进入送样验证，具备供应链导入可能",
+          "totalFunding": 125000000,
+          "assessment": "适合投资/业务合作：可先做供应链导入",
+          "dataQuality": "工商与股东名册双源一致（示例）"
+        },
+        "claimRefs": {
+          "largestShareholderPct": "cl_0001"
+        }
+      },
+      {
+        "sheet": "9-李示例家族",
+        "platform": {
+          "name": "李示例家族持股平台",
+          "role": "家族平台（李示例家族）",
+          "structure": "李示例家族成员合计持有 100%（示例）",
+          "positioning": "家族产业协同，偏设备与材料",
+          "note": "2026-02-18 完成备案（示例）"
+        },
+        "entity": {
+          "name": "禾创示例",
+          "latestFunding": "A 轮（2025-11，示例），金额 8,000.00 万元（CNY）",
+          "largestShareholderPct": "26.00% / 24.00%（口径冲突）",
+          "top5Pct": 66.5,
+          "shareholderCount": 9,
+          "founderControl": "是",
+          "founderBackground": "创始人曾任示例上市公司封装事业部负责人（示例）",
+          "industryChain": "封装设备（上游）",
+          "expansionCycle": "12 个月（示例）",
+          "prosperity": "偏强（示例口径）",
+          "grossMargin": 42.5,
+          "ranking": "国内第 3（示例口径）",
+          "techRelevance": "高潜力：同处存储封测环节",
+          "totalFunding": "累计融资约 3.20 亿元（CNY）",
+          "assessment": "供应链导入型合作",
+          "dataQuality": "注册资本存在两个口径，待工商档案确认（示例）"
+        },
+        "claimRefs": {}
+      }
+    ],
+    "notes": [
+      "口径说明：仅统计示例科技体系投出去的平台与实体，不统计外部机构对示例科技的持股。",
+      "待关注清单：星澜示例海外穿透比例仅有下限；禾创示例注册资本存在两个口径。"
+    ]
+  },
+  "comprehensive": {
+    "sheets": [
+      {
+        "name": "02_主体与股权",
+        "title": "主体与股权",
+        "headers": [
+          "字段",
+          "值",
+          "状态",
+          "证据"
+        ],
+        "rows": [
+          [
+            "法定名称",
+            "示例科技股份有限公司",
+            "found",
+            "ev_0001"
+          ],
+          [
+            "统一社会信用代码",
+            "91000000MA00000000（示例）",
+            "found",
+            "ev_0001"
+          ],
+          [
+            "注册地",
+            "示例省示例市示例区示例路 1 号（示例）",
+            "found",
+            "ev_0002"
+          ],
+          [
+            "成立日期",
+            "2015-06-18",
+            "found",
+            "ev_0002"
+          ],
+          [
+            "第一大股东",
+            "示例科技（直接投资平台）",
+            "found",
+            "ev_0002；ev_0003"
+          ],
+          [
+            "第一大股东持股比例",
+            21.5,
+            "found",
+            "ev_0003"
+          ],
+          [
+            "前5大股东合计持股比例",
+            78.2,
+            "found",
+            "ev_0003"
+          ],
+          [
+            "股东数目",
+            12,
+            "found",
+            "ev_0003"
+          ],
+          [
+            "实际控制人",
+            "王示例（一致行动人合计 34.10%）",
+            "found",
+            "ev_0003"
+          ],
+          [
+            "完整股东名册",
+            null,
+            "not_disclosed_after_search",
+            "ev_0004"
+          ],
+          [
+            "注册资本",
+            "12,000.00 万元（CNY）",
+            "conflict",
+            "ev_0002；ev_0004"
+          ],
+          [
+            "海外平台间接持股",
+            "≥ 33.34%",
+            "lower_bound",
+            "ev_0005"
+          ],
+          [
+            "员工社保缴纳人数",
+            null,
+            "not_reviewed",
+            null
+          ]
+        ]
+      },
+      {
+        "name": "03_业务与技术",
+        "title": "业务与技术",
+        "headers": [
+          "字段",
+          "值",
+          "状态",
+          "证据"
+        ],
+        "rows": [
+          [
+            "主营业务",
+            "存储封测与模组组装（示例）",
+            "found",
+            "ev_0006"
+          ],
+          [
+            "主要产品",
+            "示例产品 A / 示例产品 B",
+            "found",
+            "ev_0006"
+          ],
+          [
+            "技术路线",
+            "2.5D 封装 + 自研测试方案（示例）",
+            "estimated",
+            "ev_0006"
+          ],
+          [
+            "与委托方技术的关联",
+            "暂无公开供应关系；产品为标准件",
+            "found",
+            "ev_0006"
+          ],
+          [
+            "专利数量",
+            "发明专利 18 项（示例）",
+            "found",
+            "ev_0007"
+          ],
+          [
+            "客户集中度",
+            null,
+            "pending_dd",
+            null
+          ],
+          [
+            "产能",
+            "月产能 3,000 片（示例）",
+            "found",
+            "ev_0007"
+          ]
+        ]
+      },
+      {
+        "name": "04_财务",
+        "title": "财务",
+        "headers": [
+          "字段",
+          "值",
+          "状态",
+          "证据"
+        ],
+        "rows": [
+          [
+            "营业收入（2025A）",
+            "123,400.00 万元（CNY）",
+            "found",
+            "ev_0001"
+          ],
+          [
+            "毛利率（2025A）",
+            35.0,
+            "found",
+            "ev_0001"
+          ],
+          [
+            "净利润（2025A）",
+            "8,600.00 万元（CNY）",
+            "found",
+            "ev_0001"
+          ],
+          [
+            "资产负债率",
+            "42.50%",
+            "found",
+            "ev_0001"
+          ],
+          [
+            "审计意见",
+            null,
+            "not_disclosed_after_search",
+            "ev_0001"
+          ],
+          [
+            "累计融资总额",
+            "约 12.00 亿元（CNY）",
+            "found",
+            "ev_0007"
+          ],
+          [
+            "估值",
+            null,
+            "not_applicable",
+            null
+          ]
+        ]
+      },
+      {
+        "name": "05_风险",
+        "title": "风险",
+        "headers": [
+          "字段",
+          "值",
+          "状态",
+          "证据"
+        ],
+        "rows": [
+          [
+            "失信被执行人",
+            "无记录（截至 2026-09-30）",
+            "found",
+            "ev_0008"
+          ],
+          [
+            "被执行人",
+            "1 条（示例，金额待核）",
+            "pending_dd",
+            "ev_0008"
+          ],
+          [
+            "买卖合同纠纷",
+            "2 起（示例，一审未结）",
+            "found",
+            "ev_0008"
+          ],
+          [
+            "对外担保",
+            "无",
+            "not_applicable",
+            "ev_0008"
+          ],
+          [
+            "行政处罚",
+            "1 条（示例，已整改）",
+            "found",
+            "ev_0008"
+          ],
+          [
+            "股权质押",
+            null,
+            "conflict",
+            "ev_0008；ev_0004"
+          ],
+          [
+            "舆情",
+            "无重大负面",
+            "found",
+            "ev_0004"
+          ]
+        ]
+      }
+    ]
+  },
+  "qa": {
+    "blocking": [],
+    "warnings": [
+      {
+        "id": "W-01",
+        "message": "示例数据：不得用于任何真实投资决策。"
+      },
+      {
+        "id": "W-02",
+        "message": "星澜示例海外持股比例为下限值，未取得穿透表。"
+      }
+    ],
+    "passed": true
+  },
+  "signoff": {
+    "preparedBy": "示例分析师（构建器自检）",
+    "reviewedBy": "示例复核人",
+    "approvedBy": null,
+    "proposedAt": "2026-11-07",
+    "signedAt": null
+  },
+  "cellMap": [
+    {
+      "location": "01_管理层摘要.md#F01",
+      "claimId": "cl_0001",
+      "artifactId": "art_0002",
+      "artifactRevision": 2,
+      "artifactContentHash": "sha256:4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+      "value": "21.50%",
+      "evidenceIds": [
+        "ev_0002",
+        "ev_0003"
+      ]
+    },
+    {
+      "location": "01_管理层摘要.md#F02",
+      "claimId": "cl_0007",
+      "artifactId": "art_0002",
+      "artifactRevision": 2,
+      "artifactContentHash": "sha256:4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+      "value": "12,000.00 万元（CNY）",
+      "evidenceIds": [
+        "ev_0002",
+        "ev_0004"
+      ]
+    },
+    {
+      "location": "03_专项_投资版图_7+N.xlsx#2-合作基金-GP!H3",
+      "claimId": "cl_0003",
+      "artifactId": "art_0005",
+      "artifactRevision": 1,
+      "artifactContentHash": "sha256:7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+      "value": "32.00%",
+      "evidenceIds": [
+        "ev_0001"
+      ]
+    },
+    {
+      "location": "05_证据快照/ev_0003.txt#L1",
+      "claimId": "cl_0002",
+      "artifactId": "art_0002",
+      "artifactRevision": 2,
+      "artifactContentHash": "sha256:4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+      "value": "78.20%",
+      "evidenceIds": [
+        "ev_0003"
+      ]
+    }
+  ]
+}

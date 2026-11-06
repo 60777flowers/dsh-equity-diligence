@@ -1,0 +1,55 @@
+apiVersion: equity.module/v1
+id: builtin/assessment-fit
+name: 合作契合度（委托方视角）
+version: 0.1.0
+kind: assess
+stageHint: assessment
+scope: company
+description: 从委托方视角评估技术/商业合作适配，股权投资判断只作 IC 输入。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: ownership.chain
+    onMissing: block
+  - type: business.segment
+    onMissing: block
+  - type: investment.map
+    onMissing: block
+references:
+  - type: ip.portfolio
+  - type: financials.public
+  - type: tech.origin
+outputs:
+  - type: assessment.fit
+    typeVersion: 1
+params:
+  - key: clientProfile
+    type: string
+    default: example
+    label: 委托方档案
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 10
+  tokensPerUnit: 50000
+  wallClockMinPerUnit: 30
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

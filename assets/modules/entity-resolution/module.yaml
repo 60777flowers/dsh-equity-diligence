@@ -1,0 +1,53 @@
+apiVersion: equity.module/v1
+id: builtin/entity-resolution
+name: 主体识别与工商底册
+version: 0.1.0
+kind: collect
+stageHint: identity
+scope: company
+description: 把项目目标解析为唯一法定主体，产出工商底册与主体标识。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.roster
+    onMissing: block
+outputs:
+  - type: company.identity
+    typeVersion: 1
+params:
+  - key: maxCandidates
+    type: integer
+    default: 5
+    min: 1
+    max: 20
+    label: 候选主体上限
+  - key: requireCode
+    type: boolean
+    default: true
+    label: 是否要求统一社会信用代码
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.8
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 20
+  tokensPerUnit: 60000
+  wallClockMinPerUnit: 25
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

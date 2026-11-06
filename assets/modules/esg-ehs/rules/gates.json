@@ -1,0 +1,11 @@
+{
+  "minEvidence": 5,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.permits",
+    "data.eia",
+    "data.energy",
+    "data.safety"
+  ],
+  "maxEstimatedRatio": 0.2
+}

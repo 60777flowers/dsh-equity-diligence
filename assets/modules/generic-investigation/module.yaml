@@ -1,0 +1,57 @@
+apiVersion: equity.module/v1
+id: builtin/generic-investigation
+name: 通用调查（兜底）
+version: 0.1.0
+kind: collect
+stageHint: investigation
+scope: company
+description: 没有专用模块时，对任意公开可查问题做有证据的初步调查。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.identity
+    onMissing: degrade
+outputs:
+  - type: document.markdown
+    typeVersion: 1
+  - type: structured.findings
+    typeVersion: 1
+params:
+  - key: question
+    type: string
+    default: 这家公司是谁、做什么、有什么值得关注的公开信息？
+    label: 调查问题
+  - key: depth
+    type: string
+    default: standard
+    enum:
+      - quick
+      - standard
+      - deep
+    label: 调查深度
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.8
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 30
+  tokensPerUnit: 80000
+  wallClockMinPerUnit: 45
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

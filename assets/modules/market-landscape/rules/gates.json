@@ -1,0 +1,83 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.marketSize",
+    "data.competition",
+    "data.share",
+    "data.policy"
+  ],
+  "minItems": {
+    "data.marketSize": 2,
+    "data.policy": 1
+  },
+  "sixStateFields": [
+    "data.marketSize[].size",
+    "data.marketSize[].growthPct",
+    "data.competition[].sharePct",
+    "data.share[].sharePct"
+  ],
+  "maxEstimatedRatio": 0.5,
+  "consistency": [
+    {
+      "id": "market-size-two-sources",
+      "kind": "min_distinct",
+      "groupBy": "data.marketSize[].year",
+      "path": "data.marketSize[].sourceBasis",
+      "min": 2,
+      "onFail": "block"
+    },
+    {
+      "id": "market-size-year-required",
+      "kind": "required_with",
+      "path": "data.marketSize[].year",
+      "when": "data.marketSize[].size",
+      "onFail": "block"
+    },
+    {
+      "id": "competition-share-sum-max",
+      "kind": "sum_max",
+      "path": "data.competition[].sharePct",
+      "max": 100,
+      "tolerance": 1.0,
+      "onFail": "block"
+    },
+    {
+      "id": "share-pct-range",
+      "kind": "range",
+      "path": "data.share[].sharePct",
+      "min": 0,
+      "max": 100,
+      "onFail": "block"
+    },
+    {
+      "id": "policy-impact-enum",
+      "kind": "enum",
+      "path": "data.policy[].impact",
+      "values": [
+        "正面",
+        "中性",
+        "限制",
+        "不确定"
+      ],
+      "onFail": "block"
+    },
+    {
+      "id": "localization-range",
+      "kind": "range",
+      "path": "data.localization[].ratePct",
+      "min": 0,
+      "max": 100,
+      "onFail": "block"
+    },
+    {
+      "id": "forecast-tagged",
+      "kind": "tag_conditional",
+      "path": "data.marketSize[].sourceBasis",
+      "whenField": "data.marketSize[].note",
+      "whenText": "预测",
+      "tag": "predicted",
+      "onFail": "block"
+    }
+  ]
+}

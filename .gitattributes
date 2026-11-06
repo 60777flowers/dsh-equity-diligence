@@ -1,0 +1,20 @@
+# 统一文本换行，避免 Windows/Linux 协作时整文件抖动
+* text=auto
+
+# PowerShell 脚本保持 CRLF
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+# 文档与代码用 LF
+*.md text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# 二进制
+*.xlsx binary
+*.png binary
+*.jpg binary

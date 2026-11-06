@@ -1,0 +1,56 @@
+apiVersion: equity.module/v1
+id: builtin/financials-public
+name: 财务质量与勾稽
+version: 0.1.0
+kind: collect
+stageHint: finance
+scope: company
+description: 收集公开财务数据，做三表勾稽、收入质量与口径检查。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: business.segment
+    onMissing: block
+references:
+  - type: valuechain.parties
+  - type: supply.capacity
+outputs:
+  - type: financials.public
+    typeVersion: 1
+params:
+  - key: yearsBack
+    type: integer
+    default: 3
+    min: 1
+    max: 10
+    label: 回溯财年
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.8
+  - id: evidence
+    type: rule
+    config:
+      minEvidence: 2
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 26
+  tokensPerUnit: 80000
+  wallClockMinPerUnit: 40
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

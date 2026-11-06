@@ -1,0 +1,161 @@
+{
+  "asOf": "2026-09-30",
+  "openQuestions": [
+    "示例数据：历史曾用名未做穷尽检索"
+  ],
+  "flags": [
+    {
+      "level": "attention",
+      "rule": "demo_fixture",
+      "desc": "离线验收样例，数据为结构性示例，未经本轮真实来源核验"
+    }
+  ],
+  "sourceCoverage": {
+    "queries": [
+      {
+        "query": "示例科技 工商 全称",
+        "engine": "fixture",
+        "at": "2026-11-07T00:00:00+08:00",
+        "resultCount": 2,
+        "outcome": "ok"
+      }
+    ],
+    "databases": [
+      "fixture-registry"
+    ],
+    "retrievedAt": "2026-11-07T00:00:00+08:00",
+    "limitations": [
+      "示例数据，不是事实"
+    ]
+  },
+  "claims": [
+    {
+      "claimId": "cl_demo_identity_name",
+      "subjectId": "co_示例科技",
+      "predicate": "legal_name",
+      "value": "示例科技股份有限公司",
+      "unit": "text",
+      "period": {
+        "asOf": "2026-09-30"
+      },
+      "status": "found",
+      "materiality": "material",
+      "evidenceLinks": [
+        {
+          "evidenceId": "ev_demo_registry_1",
+          "role": "supports",
+          "locator": "登记信息第 1 页"
+        },
+        {
+          "evidenceId": "ev_demo_announcement_identity",
+          "role": "supports",
+          "locator": "p.12 发行人基本情况"
+        }
+      ],
+      "note": "示例数据"
+    },
+    {
+      "claimId": "cl_demo_identity_code",
+      "subjectId": "co_示例科技",
+      "predicate": "unified_social_credit_code",
+      "value": "91310000MA1FL00000",
+      "unit": "text",
+      "period": {
+        "asOf": "2026-09-30"
+      },
+      "status": "found",
+      "materiality": "material",
+      "evidenceLinks": [
+        {
+          "evidenceId": "ev_demo_registry_1",
+          "role": "supports",
+          "locator": "登记信息第 1 页"
+        }
+      ],
+      "note": "示例数据"
+    }
+  ],
+  "evidence": [
+    {
+      "evidenceId": "ev_demo_registry_1",
+      "url": "https://example.com/demo/registry/example-tech",
+      "title": "示例科技股份有限公司登记信息（示例）",
+      "quote": "名称：示例科技股份有限公司；统一社会信用代码：91310000MA1FL00000；成立日期：2015-06-01；状态：存续。",
+      "locator": "登记信息第 1 页",
+      "sourceTier": "registry",
+      "sourceAuthority": "A",
+      "sourceIndependence": "independent",
+      "verificationStatus": "verified",
+      "claimConfidence": "high",
+      "asOf": "2026-09-30",
+      "publishedAt": "2026-09-30",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:demo00000000000000000000000000000000000000000000000000000000000001",
+      "originGroupId": "og_demo_registry",
+      "verification": {
+        "method": "quote-exact",
+        "checkedAt": "2026-11-07T00:00:00+08:00",
+        "matches": true
+      }
+    },
+    {
+      "evidenceId": "ev_demo_announcement_identity",
+      "url": "https://example.com/demo/announcement/identity",
+      "title": "示例科技 首次公开发行招股说明书（示例）",
+      "quote": "发行人名称为示例科技股份有限公司，统一社会信用代码 91310000MA1FL00000。",
+      "locator": "p.12 发行人基本情况",
+      "sourceTier": "announcement",
+      "sourceAuthority": "A",
+      "sourceIndependence": "independent",
+      "verificationStatus": "verified",
+      "claimConfidence": "high",
+      "asOf": "2026-09-30",
+      "publishedAt": "2020-01-10",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:demo00000000000000000000000000000000000000000000000000000000000005",
+      "originGroupId": "og_demo_prospectus",
+      "verification": {
+        "method": "quote-exact",
+        "checkedAt": "2026-11-07T00:00:00+08:00",
+        "matches": true
+      }
+    }
+  ],
+  "data": {
+    "legalName": "示例科技股份有限公司",
+    "code": "91310000MA1FL00000",
+    "aliases": [
+      "示例科技"
+    ],
+    "englishName": "Example Technology Co., Ltd.",
+    "domicile": {
+      "country": "中国",
+      "province": "上海",
+      "city": "上海",
+      "detail": "示例路 1 号"
+    },
+    "incorporationDate": "2015-06-01",
+    "status": "存续",
+    "registeredCapital": {
+      "amount": 10000,
+      "currency": "CNY",
+      "unit": "万元"
+    },
+    "legalRepresentative": "张三",
+    "businessScope": "示例：技术开发、技术服务、货物进出口。",
+    "identifiers": [
+      {
+        "kind": "统一社会信用代码",
+        "value": "91310000MA1FL00000",
+        "jurisdiction": "CN"
+      }
+    ],
+    "branches": [],
+    "controllingPerson": {
+      "status": "found",
+      "value": "张三",
+      "note": "示例数据；控制结论以 ownership.chain 为准"
+    },
+    "notes": "示例数据，仅用于离线验收"
+  }
+}

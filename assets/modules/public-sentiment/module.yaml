@@ -1,0 +1,53 @@
+apiVersion: equity.module/v1
+id: builtin/public-sentiment
+name: 舆情与利益相关方
+version: 0.1.0
+kind: collect
+stageHint: risk
+scope: company
+description: 收集负面事件、举报、利益相关方评价与后续进展。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: org.people
+    onMissing: block
+  - type: business.segment
+    onMissing: block
+references:
+  - type: legal.risk
+outputs:
+  - type: public.sentiment
+    typeVersion: 1
+params:
+  - key: daysBack
+    type: integer
+    default: 365
+    min: 30
+    max: 1095
+    label: 回溯天数
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.6
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 18
+  tokensPerUnit: 45000
+  wallClockMinPerUnit: 25
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

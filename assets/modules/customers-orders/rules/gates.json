@@ -1,0 +1,65 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.customers",
+    "data.suppliers",
+    "data.concentration",
+    "data.orders",
+    "data.bids"
+  ],
+  "minItems": {
+    "data.customers": 1
+  },
+  "sixStateFields": [
+    "data.customers[].relation",
+    "data.customers[].id",
+    "data.orders[].amount",
+    "data.bids[].amount",
+    "data.concentration.c5"
+  ],
+  "maxEstimatedRatio": 0.2,
+  "consistency": [
+    {
+      "id": "c5-ge-c1",
+      "kind": "order",
+      "left": "data.concentration.c5",
+      "right": "data.concentration.c1",
+      "relation": "gte",
+      "onFail": "block"
+    },
+    {
+      "id": "concentration-range",
+      "kind": "range",
+      "path": "data.concentration.c5",
+      "min": 0,
+      "max": 100,
+      "onFail": "block"
+    },
+    {
+      "id": "concentration-period-required",
+      "kind": "required_with",
+      "path": "data.concentration.period",
+      "when": "data.concentration.c5",
+      "onFail": "block"
+    },
+    {
+      "id": "dual-role-tagged",
+      "kind": "tag_required",
+      "intersect": [
+        "data.customers[].fullName",
+        "data.suppliers[].fullName"
+      ],
+      "tag": "双重身份",
+      "path": "data.customers[].note",
+      "onFail": "block"
+    },
+    {
+      "id": "order-amount-unit",
+      "kind": "required_with",
+      "path": "data.orders[].amount.unit",
+      "when": "data.orders[].amount.value",
+      "onFail": "attention"
+    }
+  ]
+}

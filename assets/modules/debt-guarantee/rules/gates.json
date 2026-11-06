@@ -1,0 +1,11 @@
+{
+  "minEvidence": 5,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.debt"
+  ],
+  "minItems": {
+    "data.debt": 1
+  },
+  "maxEstimatedRatio": 0.15
+}

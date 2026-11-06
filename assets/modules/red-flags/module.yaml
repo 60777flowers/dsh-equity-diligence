@@ -1,0 +1,53 @@
+apiVersion: equity.module/v1
+id: builtin/red-flags
+name: 证据矩阵与红旗清单
+version: 0.1.0
+kind: synthesize
+stageHint: assessment
+scope: company
+description: 汇总风险类底稿，运行 12 条核查触发器，输出红旗与待核清单。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: legal.risk
+    onMissing: block
+  - type: regulatory.compliance
+    onMissing: block
+references:
+  - type: financials.public
+  - type: ownership.chain
+  - type: public.sentiment
+outputs:
+  - type: risk.redflags
+    typeVersion: 1
+params:
+  - key: triggerPack
+    type: string
+    default: v1
+    label: 触发器包版本
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 8
+  tokensPerUnit: 40000
+  wallClockMinPerUnit: 25
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

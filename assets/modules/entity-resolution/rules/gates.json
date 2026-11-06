@@ -1,0 +1,33 @@
+{
+  "minEvidence": 2,
+  "minCoverage": 0.8,
+  "requiredFields": ["data.legalName", "data.domicile", "data.status"],
+  "minItems": { "data.identifiers": 1 },
+  "sixStateFields": ["data.controllingPerson"],
+  "maxEstimatedRatio": 0,
+  "consistency": [
+    {
+      "id": "codeNameUnique",
+      "kind": "uniquePair",
+      "fields": ["data.code", "data.legalName"],
+      "onFail": "issue",
+      "note": "同一代码只能对应一个法定全称；同名不同代码视为不同主体，必须在 resolution 中并列候选"
+    },
+    {
+      "id": "aliasTyped",
+      "kind": "prefixEnum",
+      "field": "data.aliases[]",
+      "prefixes": ["简称：", "曾用名：", "英文名：", "品牌："],
+      "onFail": "warn",
+      "note": "aliases 每项带类型前缀，避免下游把曾用名或品牌名当法定全称"
+    },
+    {
+      "id": "resolutionCoversTargets",
+      "kind": "setCovers",
+      "left": "data.targets[].name",
+      "right": "data.resolution[].inputName",
+      "onFail": "block",
+      "note": "roster 的每个 target 必须出现在 resolution 中，不得漏项"
+    }
+  ]
+}

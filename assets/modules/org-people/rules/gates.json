@@ -1,0 +1,13 @@
+{
+  "minEvidence": 6,
+  "minCoverage": 0.7,
+  "minItems": {
+    "data.directors": 3,
+    "data.keyPeople": 2
+  },
+  "requiredFields": [
+    "data.directors",
+    "data.keyPeople"
+  ],
+  "maxEstimatedRatio": 0.1
+}

@@ -1,0 +1,24 @@
+apiVersion: equity.playbook/v1
+id: generic-scan
+name: 通用调查（无专用模块时）
+version: 1.0.0
+preset: generic
+targets:
+  scope: company
+  from: company.roster
+stages:
+  - { id: identity, name: 主体识别 }
+  - { id: investigation, name: 通用调查 }
+  - { id: delivery, name: 交付 }
+modules:
+  - { id: entity-resolution, use: builtin/entity-resolution@^0.1, stage: identity }
+  - id: generic-investigation
+    use: builtin/generic-investigation@^0.1
+    stage: investigation
+    params:
+      question: 这家公司是谁、做什么、有什么值得关注的公开信息？
+      depth: standard
+  - { id: deliverable, use: builtin/deliverable@^0.1, stage: delivery }
+budget:
+  maxTokens: 6000000
+  maxWallClockMin: 180

@@ -1,0 +1,51 @@
+apiVersion: equity.module/v1
+id: builtin/debt-guarantee
+name: 债务、担保与评级
+version: 0.1.0
+kind: collect
+stageHint: finance
+scope: company
+description: 梳理有息负债、对外担保、评级与表外负债。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: financials.public
+    onMissing: block
+  - type: ownership.chain
+    onMissing: block
+references:
+  - type: legal.risk
+outputs:
+  - type: debt.guarantee
+    typeVersion: 1
+params:
+  - key: includeOffBalance
+    type: boolean
+    default: true
+    label: 是否查表外
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 18
+  tokensPerUnit: 50000
+  wallClockMinPerUnit: 25
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

@@ -1,0 +1,52 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.8,
+  "requiredFields": ["data.asOfLabel", "data.capTable", "data.layers", "data.control"],
+  "minItems": { "data.layers": 1, "data.capTable": 1, "data.control": 1 },
+  "maxEstimatedRatio": 0,
+  "consistency": [
+    {
+      "id": "capTableSumTo100",
+      "kind": "sumTo100",
+      "field": "data.capTable[].totalPct",
+      "tolerance": 1.0,
+      "onFail": "issue",
+      "note": "合计应在 99–101；差额必须由 note 解释未披露股东、库存股、员工持股或境外层"
+    },
+    {
+      "id": "totalEqDirectPlusIndirect",
+      "kind": "crossFieldEqual",
+      "expr": "totalPct == directPct + indirectPct",
+      "fields": ["data.capTable[].totalPct", "data.capTable[].directPct", "data.capTable[].indirectPct"],
+      "tolerance": 0.05,
+      "onFail": "issue",
+      "note": "合计必须等于直接加间接，不得只填 totalPct"
+    },
+    {
+      "id": "layerPctRange",
+      "kind": "range",
+      "field": "data.layers[].pct",
+      "min": 0,
+      "max": 100,
+      "onFail": "block",
+      "note": "单层持股比例必须在 0–100 之间；超过 100 说明方向写反或口径错误"
+    },
+    {
+      "id": "controlHasBasis",
+      "kind": "requiredWhen",
+      "field": "data.control[].basis",
+      "when": "data.control[].status == 'found'",
+      "allowed": ["股权", "表决权", "协议控制", "董事会席位", "章程条款"],
+      "onFail": "issue",
+      "note": "控制结论必须写明控制基础；无实际控制人也需在 basis/note 说明依据"
+    },
+    {
+      "id": "specialRightStatus",
+      "kind": "enumMember",
+      "field": "data.specialRights[].status",
+      "allowed": ["found", "not_disclosed_after_search", "pending_dd", "not_applicable", "not_reviewed"],
+      "onFail": "warn",
+      "note": "特殊权利不得用 estimated；查不到时区分未披露与待企业提供"
+    }
+  ]
+}

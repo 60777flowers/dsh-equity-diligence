@@ -1,0 +1,10 @@
+{
+  "minEvidence": 5,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.listings",
+    "data.exposure",
+    "data.licenses"
+  ],
+  "maxEstimatedRatio": 0.1
+}

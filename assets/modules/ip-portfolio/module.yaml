@@ -1,0 +1,51 @@
+apiVersion: equity.module/v1
+id: builtin/ip-portfolio
+name: 知识产权组合
+version: 0.1.0
+kind: collect
+stageHint: tech
+scope: company
+description: 梳理专利/商标/软著/资质清单、法律状态与质押。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.identity
+    onMissing: block
+  - type: business.segment
+    onMissing: block
+references:
+  - type: org.people
+outputs:
+  - type: ip.portfolio
+    typeVersion: 1
+params:
+  - key: includeFamily
+    type: boolean
+    default: true
+    label: 是否合并同族
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 22
+  tokensPerUnit: 60000
+  wallClockMinPerUnit: 30
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

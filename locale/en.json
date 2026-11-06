@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "Private-Market Investigation Workbench",
+    "description": "A pre-diligence public-information workbench: pick a playbook, inspect artifacts, verify evidence, ship a checked deliverable."
+  },
+  "panel": {
+    "title": "Private-Market Investigation",
+    "subtitle": "Public-market pre-DD workbench"
+  }
+}

@@ -1,0 +1,57 @@
+apiVersion: equity.module/v1
+id: builtin/ownership-chain
+name: 股权、控制权与特殊权利
+version: 0.1.0
+kind: collect
+stageHint: ownership
+scope: company
+description: 梳理股权层级、控制链、一致行动、特殊权利与历次变更。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.identity
+    onMissing: block
+outputs:
+  - type: ownership.chain
+    typeVersion: 1
+params:
+  - key: maxLayers
+    type: integer
+    default: 8
+    min: 2
+    max: 15
+    label: 穿透层级上限
+  - key: includeSpecialRights
+    type: boolean
+    default: true
+    label: 是否查特殊权利
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.8
+  - id: evidence
+    type: rule
+    config:
+      minEvidence: 3
+review:
+  mode: adversarial
+  maxRounds: 2
+budget:
+  toolCallsPerUnit: 30
+  tokensPerUnit: 90000
+  wallClockMinPerUnit: 45
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

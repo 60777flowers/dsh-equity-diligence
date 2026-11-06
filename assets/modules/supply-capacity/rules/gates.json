@@ -1,0 +1,60 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.suppliers",
+    "data.singleSource",
+    "data.capacity",
+    "data.costStructure"
+  ],
+  "minItems": {
+    "data.suppliers": 1
+  },
+  "sixStateFields": [
+    "data.suppliers[].relation",
+    "data.singleSource[].supplier",
+    "data.capacity[].designCapacity",
+    "data.capacity[].utilization",
+    "data.costStructure[].pct"
+  ],
+  "maxEstimatedRatio": 0.25,
+  "consistency": [
+    {
+      "id": "utilization-range",
+      "kind": "range",
+      "path": "data.capacity[].utilization",
+      "min": 0,
+      "max": 100,
+      "onFail": "block"
+    },
+    {
+      "id": "capacity-period-required",
+      "kind": "required_with",
+      "path": "data.capacity[].period",
+      "when": "data.capacity[].output",
+      "onFail": "block"
+    },
+    {
+      "id": "capacity-unit-required",
+      "kind": "required_with",
+      "path": "data.capacity[].note",
+      "when": "data.capacity[].designCapacity",
+      "onFail": "attention"
+    },
+    {
+      "id": "cost-structure-sum",
+      "kind": "sum",
+      "path": "data.costStructure[].pct",
+      "target": 100,
+      "tolerance": 2.0,
+      "onFail": "attention"
+    },
+    {
+      "id": "single-source-note-required",
+      "kind": "required_with",
+      "path": "data.singleSource[].note",
+      "when": "data.singleSource[].item",
+      "onFail": "block"
+    }
+  ]
+}

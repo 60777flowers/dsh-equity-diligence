@@ -1,0 +1,16 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.technologyFit",
+    "data.commercialFit",
+    "data.equityView",
+    "data.conclusion"
+  ],
+  "sixStateFields": [
+    "data.technologyFit",
+    "data.commercialFit",
+    "data.equityView"
+  ],
+  "maxEstimatedRatio": 0.4
+}

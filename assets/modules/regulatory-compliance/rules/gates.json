@@ -1,0 +1,11 @@
+{
+  "minEvidence": 5,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.penalties",
+    "data.taxCredit",
+    "data.customsCredit",
+    "data.abnormal"
+  ],
+  "maxEstimatedRatio": 0.1
+}

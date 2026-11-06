@@ -1,0 +1,54 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.8,
+  "requiredFields": [
+    "data.products",
+    "data.segments",
+    "data.revenueMix",
+    "data.techRoute"
+  ],
+  "minItems": {
+    "data.products": 1,
+    "data.revenueMix": 1
+  },
+  "sixStateFields": [
+    "data.products[].generation",
+    "data.products[].status",
+    "data.techRoute[].status",
+    "data.segments[].grossMargin"
+  ],
+  "maxEstimatedRatio": 0.2,
+  "consistency": [
+    {
+      "id": "revenue-mix-sum",
+      "kind": "sum",
+      "path": "data.revenueMix[].pct",
+      "groupBy": "data.revenueMix[].period",
+      "target": 100,
+      "tolerance": 1.0,
+      "onFail": "block"
+    },
+    {
+      "id": "revenue-mix-range",
+      "kind": "range",
+      "path": "data.revenueMix[].pct",
+      "min": 0,
+      "max": 100,
+      "onFail": "block"
+    },
+    {
+      "id": "product-name-unique",
+      "kind": "unique",
+      "path": "data.products[].name",
+      "onFail": "block"
+    },
+    {
+      "id": "segment-vs-mix",
+      "kind": "cross_check",
+      "left": "data.segments[].revenuePct",
+      "right": "data.revenueMix[].pct",
+      "tolerance": 1.0,
+      "onFail": "attention"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+apiVersion: equity.module/v1
+id: builtin/org-people
+name: 创始人与关键人
+version: 0.1.0
+kind: collect
+stageHint: people
+scope: company
+description: 梳理实控人、董监高、核心团队、任职与关联企业。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.identity
+    onMissing: block
+  - type: ownership.chain
+    onMissing: block
+outputs:
+  - type: org.people
+    typeVersion: 1
+params:
+  - key: includeLitigation
+    type: boolean
+    default: true
+    label: 是否查关键人诉讼
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 18
+  tokensPerUnit: 60000
+  wallClockMinPerUnit: 30
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

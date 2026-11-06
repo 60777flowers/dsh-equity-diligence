@@ -1,0 +1,945 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "asOf",
+    "openQuestions",
+    "flags",
+    "sourceCoverage",
+    "claims",
+    "evidence",
+    "data"
+  ],
+  "properties": {
+    "asOf": {
+      "type": "string",
+      "format": "date",
+      "description": "数据截至日"
+    },
+    "openQuestions": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "question": {
+                "type": "string"
+              },
+              "why": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "string"
+              },
+              "owner": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "question"
+            ]
+          }
+        ]
+      }
+    },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "level",
+          "desc"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "attention",
+              "material"
+            ]
+          },
+          "rule": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "triggerId": {
+            "type": "string"
+          },
+          "claimIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action": {
+            "type": "string"
+          },
+          "materiality": {
+            "type": "string",
+            "enum": [
+              "material",
+              "attention",
+              "context"
+            ]
+          }
+        }
+      }
+    },
+    "sourceCoverage": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "query": {
+                "type": "string"
+              },
+              "engine": {
+                "type": "string"
+              },
+              "at": {
+                "type": "string"
+              },
+              "resultCount": {
+                "type": "number"
+              },
+              "outcome": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "databases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retrievedAt": {
+          "type": "string"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "claimId",
+          "predicate",
+          "status"
+        ],
+        "properties": {
+          "claimId": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "predicate": {
+            "type": "string"
+          },
+          "value": {},
+          "unit": {
+            "type": "string"
+          },
+          "period": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "asOf": {
+                "type": "string"
+              },
+              "start": {
+                "type": "string"
+              },
+              "end": {
+                "type": "string"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "found",
+              "not_disclosed_after_search",
+              "lower_bound",
+              "pending_dd",
+              "conflict",
+              "not_applicable",
+              "not_reviewed",
+              "estimated"
+            ]
+          },
+          "materiality": {
+            "type": "string",
+            "enum": [
+              "material",
+              "attention",
+              "context"
+            ]
+          },
+          "evidenceLinks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "evidenceId": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "contextual"
+                  ]
+                },
+                "locator": {
+                  "type": "string"
+                },
+                "rawHash": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "evidenceId",
+                "role"
+              ]
+            }
+          },
+          "derivation": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "conflictGroup": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "candidates": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "chosenClaimId": {
+                "type": "string"
+              },
+              "resolutionRationale": {
+                "type": "string"
+              },
+              "decidedBy": {
+                "type": "string"
+              }
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "evidenceId",
+          "sourceTier",
+          "verificationStatus"
+        ],
+        "properties": {
+          "evidenceId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "finalUrl": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "sourceTier": {
+            "type": "string",
+            "enum": [
+              "announcement",
+              "registry",
+              "regulator",
+              "court",
+              "exchange",
+              "company",
+              "media",
+              "database",
+              "import",
+              "sample",
+              "case_reference"
+            ]
+          },
+          "sourceAuthority": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "sourceIndependence": {
+            "type": "string",
+            "enum": [
+              "independent",
+              "same_origin",
+              "self_reported",
+              "unknown"
+            ]
+          },
+          "verificationStatus": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "partial",
+              "unreachable",
+              "unverified"
+            ]
+          },
+          "claimConfidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "asOf": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "retrievedAt": {
+            "type": "string"
+          },
+          "rawHash": {
+            "type": "string"
+          },
+          "originGroupId": {
+            "type": "string"
+          },
+          "verification": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "quote-exact",
+                  "manual",
+                  "import",
+                  "provider"
+                ]
+              },
+              "checkedAt": {
+                "type": "string"
+              },
+              "matches": {
+                "type": "boolean"
+              }
+            }
+          },
+          "snapshotPath": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "parties": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "fullName": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              },
+              "relation": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "transactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "counterparty": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              },
+              "period": {
+                "type": "string"
+              },
+              "pricing": {
+                "type": "string"
+              },
+              "approval": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "overlapFlags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "with": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sixState": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "found",
+            "not_disclosed_after_search",
+            "lower_bound",
+            "pending_dd",
+            "conflict",
+            "not_applicable",
+            "not_reviewed",
+            "estimated"
+          ],
+          "description": "六态字段状态"
+        },
+        "value": {
+          "description": "字段值，允许 null 表示未披露"
+        },
+        "note": {
+          "type": "string",
+          "description": "状态说明；not_disclosed_after_search 必填"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "derivation": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "method"
+          ],
+          "properties": {
+            "method": {
+              "type": "string"
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "comparables": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "assumptions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "flag": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "level",
+        "desc"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "attention",
+            "material"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "triggerId": {
+          "type": "string"
+        },
+        "claimIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "action": {
+          "type": "string"
+        },
+        "materiality": {
+          "type": "string",
+          "enum": [
+            "material",
+            "attention",
+            "context"
+          ]
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "claimId",
+        "predicate",
+        "status"
+      ],
+      "properties": {
+        "claimId": {
+          "type": "string"
+        },
+        "subjectId": {
+          "type": "string"
+        },
+        "predicate": {
+          "type": "string"
+        },
+        "value": {},
+        "unit": {
+          "type": "string"
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "asOf": {
+              "type": "string"
+            },
+            "start": {
+              "type": "string"
+            },
+            "end": {
+              "type": "string"
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "found",
+            "not_disclosed_after_search",
+            "lower_bound",
+            "pending_dd",
+            "conflict",
+            "not_applicable",
+            "not_reviewed",
+            "estimated"
+          ]
+        },
+        "materiality": {
+          "type": "string",
+          "enum": [
+            "material",
+            "attention",
+            "context"
+          ]
+        },
+        "evidenceLinks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "evidenceId": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "supports",
+                  "contradicts",
+                  "contextual"
+                ]
+              },
+              "locator": {
+                "type": "string"
+              },
+              "rawHash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "evidenceId",
+              "role"
+            ]
+          }
+        },
+        "derivation": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "conflictGroup": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "candidates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "chosenClaimId": {
+              "type": "string"
+            },
+            "resolutionRationale": {
+              "type": "string"
+            },
+            "decidedBy": {
+              "type": "string"
+            }
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "evidenceId",
+        "sourceTier",
+        "verificationStatus"
+      ],
+      "properties": {
+        "evidenceId": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "finalUrl": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "string"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "sourceTier": {
+          "type": "string",
+          "enum": [
+            "announcement",
+            "registry",
+            "regulator",
+            "court",
+            "exchange",
+            "company",
+            "media",
+            "database",
+            "import",
+            "sample",
+            "case_reference"
+          ]
+        },
+        "sourceAuthority": {
+          "type": "string",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ]
+        },
+        "sourceIndependence": {
+          "type": "string",
+          "enum": [
+            "independent",
+            "same_origin",
+            "self_reported",
+            "unknown"
+          ]
+        },
+        "verificationStatus": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "partial",
+            "unreachable",
+            "unverified"
+          ]
+        },
+        "claimConfidence": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "asOf": {
+          "type": "string"
+        },
+        "publishedAt": {
+          "type": "string"
+        },
+        "retrievedAt": {
+          "type": "string"
+        },
+        "rawHash": {
+          "type": "string"
+        },
+        "originGroupId": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "quote-exact",
+                "manual",
+                "import",
+                "provider"
+              ]
+            },
+            "checkedAt": {
+              "type": "string"
+            },
+            "matches": {
+              "type": "boolean"
+            }
+          }
+        },
+        "snapshotPath": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "openQuestion": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "question": {
+              "type": "string"
+            },
+            "why": {
+              "type": "string"
+            },
+            "priority": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "question"
+          ]
+        }
+      ]
+    },
+    "sourceCoverage": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "query": {
+                "type": "string"
+              },
+              "engine": {
+                "type": "string"
+              },
+              "at": {
+                "type": "string"
+              },
+              "resultCount": {
+                "type": "number"
+              },
+              "outcome": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "databases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retrievedAt": {
+          "type": "string"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

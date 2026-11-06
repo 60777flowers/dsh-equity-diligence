@@ -1,0 +1,71 @@
+{
+  "name": "dsh-equity-diligence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "一级市场尽调前的公开信息调查平台：类型化底稿、证据账本、方案编排、可追溯交付与 Web 工作台。",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/60777flowers/dsh-equity-diligence.git"
+  },
+  "homepage": "https://github.com/60777flowers/dsh-equity-diligence#readme",
+  "bugs": {
+    "url": "https://github.com/60777flowers/dsh-equity-diligence/issues"
+  },
+  "keywords": [
+    "due-diligence",
+    "private-equity",
+    "equity-research",
+    "deepseek-harness",
+    "dsh-plugin",
+    "workpaper",
+    "evidence-ledger"
+  ],
+  "author": "60777flowers",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "src",
+    "assets",
+    "python",
+    "tools",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "docs"
+  ],
+  "engines": {
+    "dsh": "^0.2.1-rc.5",
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:all": "node --test tests/*.test.js tests/**/*.test.js",
+    "check": "node tools/check.mjs",
+    "gen:types": "node tools/gen-artifact-types.mjs",
+    "validate": "node tools/validate-assets.mjs"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,21 @@
+apiVersion: equity.playbook/v1
+id: skill-only
+name: 旧资产闭环（skill-only）
+version: 1.0.0
+preset: skill-only
+targets:
+  scope: company
+  from: company.roster
+stages:
+  - { id: identity, name: 主体识别 }
+  - { id: ownership, name: 股权与控制 }
+  - { id: assessment, name: 汇总与红旗 }
+  - { id: delivery, name: 交付 }
+modules:
+  - { id: entity-resolution, use: builtin/entity-resolution@^0.1, stage: identity }
+  - { id: ownership-chain, use: builtin/ownership-chain@^0.1, stage: ownership }
+  - { id: investment-map, use: builtin/investment-map@^0.2, stage: ownership }
+  - { id: deliverable, use: builtin/deliverable@^0.1, stage: delivery }
+budget:
+  maxTokens: 12000000
+  maxWallClockMin: 360

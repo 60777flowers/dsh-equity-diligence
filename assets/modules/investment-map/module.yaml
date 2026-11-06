@@ -1,0 +1,62 @@
+apiVersion: equity.module/v1
+id: builtin/investment-map
+name: 对外投资版图
+version: 0.2.0
+kind: collect
+stageHint: ownership
+scope: company
+description: 梳理九类投资出口、平台、被投实体与跨平台路径。
+status: draft
+provenance:
+  author: 60777flowers
+  origin: human
+  derivedFrom: investigate-equity-structure v7
+inputs:
+  - type: company.identity
+    onMissing: block
+  - type: ownership.chain
+    onMissing: block
+references:
+  - type: business.segment
+outputs:
+  - type: investment.map
+    typeVersion: 1
+params:
+  - key: maxPlatforms
+    type: integer
+    default: 40
+    min: 5
+    max: 120
+    label: 平台数量上限
+  - key: includeOverseas
+    type: boolean
+    default: true
+    label: 是否包含境外平台
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.8
+  - id: evidence
+    type: rule
+    config:
+      minEvidence: 3
+review:
+  mode: adversarial
+  maxRounds: 3
+budget:
+  toolCallsPerUnit: 40
+  tokensPerUnit: 120000
+  wallClockMinPerUnit: 90
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

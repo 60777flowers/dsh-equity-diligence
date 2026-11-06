@@ -1,0 +1,238 @@
+{
+  "asOf": "2026-09-30",
+  "openQuestions": [
+    "示例数据：特殊权利条款未穷尽"
+  ],
+  "flags": [
+    {
+      "level": "attention",
+      "rule": "demo_fixture",
+      "desc": "离线验收样例，数据为结构性示例"
+    }
+  ],
+  "sourceCoverage": {
+    "queries": [
+      {
+        "query": "示例科技 股权结构 公告",
+        "engine": "fixture",
+        "at": "2026-11-07T00:00:00+08:00",
+        "resultCount": 2,
+        "outcome": "ok"
+      }
+    ],
+    "databases": [
+      "fixture-announcement"
+    ],
+    "retrievedAt": "2026-11-07T00:00:00+08:00",
+    "limitations": [
+      "示例数据，不是事实"
+    ]
+  },
+  "claims": [
+    {
+      "claimId": "cl_demo_largest_holder",
+      "subjectId": "co_示例科技",
+      "predicate": "largest_shareholder_pct",
+      "value": 42.5,
+      "unit": "percent",
+      "period": {
+        "asOf": "2026-09-30"
+      },
+      "status": "found",
+      "materiality": "material",
+      "evidenceLinks": [
+        {
+          "evidenceId": "ev_demo_announcement_1",
+          "role": "supports",
+          "locator": "p.4 第 2 段"
+        },
+        {
+          "evidenceId": "ev_demo_announcement_2",
+          "role": "supports",
+          "locator": "p.52 股东情况"
+        },
+        {
+          "evidenceId": "ev_demo_registry_2",
+          "role": "contextual",
+          "locator": "登记信息第 1 页"
+        }
+      ],
+      "note": "示例数据；口径为直接持股"
+    },
+    {
+      "claimId": "cl_demo_top5",
+      "subjectId": "co_示例科技",
+      "predicate": "top5_shareholders_pct",
+      "value": 78.2,
+      "unit": "percent",
+      "period": {
+        "asOf": "2026-09-30"
+      },
+      "status": "found",
+      "materiality": "material",
+      "evidenceLinks": [
+        {
+          "evidenceId": "ev_demo_announcement_1",
+          "role": "supports",
+          "locator": "p.4 表格 1"
+        }
+      ],
+      "note": "示例数据；口径为直接持股合计"
+    }
+  ],
+  "evidence": [
+    {
+      "evidenceId": "ev_demo_announcement_1",
+      "url": "https://example.com/demo/announcement/ownership",
+      "title": "示例科技股份有限公司权益变动报告书（示例）",
+      "quote": "本次权益变动后，示例控股有限公司持有公司 42.50% 股份，成为第一大股东；前五大股东合计持股 78.20%。",
+      "locator": "p.4 第 2 段 / 表格 1",
+      "sourceTier": "announcement",
+      "sourceAuthority": "A",
+      "sourceIndependence": "independent",
+      "verificationStatus": "verified",
+      "claimConfidence": "high",
+      "asOf": "2026-09-30",
+      "publishedAt": "2026-08-15",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:demo00000000000000000000000000000000000000000000000000000000000002",
+      "originGroupId": "og_demo_announcement",
+      "verification": {
+        "method": "quote-exact",
+        "checkedAt": "2026-11-07T00:00:00+08:00",
+        "matches": true
+      }
+    },
+    {
+      "evidenceId": "ev_demo_announcement_2",
+      "url": "https://example.com/demo/announcement/ownership-2",
+      "title": "示例科技 2025 年年度报告（示例）",
+      "quote": "示例控股有限公司持股 42.50%，为第一大股东；前五大股东合计 78.20%。",
+      "locator": "p.52 股东情况",
+      "sourceTier": "announcement",
+      "sourceAuthority": "A",
+      "sourceIndependence": "independent",
+      "verificationStatus": "verified",
+      "claimConfidence": "high",
+      "asOf": "2026-09-30",
+      "publishedAt": "2026-04-20",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:demo00000000000000000000000000000000000000000000000000000000000003",
+      "originGroupId": "og_demo_annual",
+      "verification": {
+        "method": "quote-exact",
+        "checkedAt": "2026-11-07T00:00:00+08:00",
+        "matches": true
+      }
+    },
+    {
+      "evidenceId": "ev_demo_registry_2",
+      "url": "https://example.com/demo/registry/example-holding",
+      "title": "示例控股有限公司登记信息（示例）",
+      "quote": "示例控股有限公司注册资本 1000 万元，股东为张三（100%）。",
+      "locator": "登记信息第 1 页",
+      "sourceTier": "registry",
+      "sourceAuthority": "A",
+      "sourceIndependence": "independent",
+      "verificationStatus": "verified",
+      "claimConfidence": "high",
+      "asOf": "2026-09-30",
+      "publishedAt": "2026-09-30",
+      "retrievedAt": "2026-11-07T00:00:00+08:00",
+      "rawHash": "sha256:demo00000000000000000000000000000000000000000000000000000000000004",
+      "originGroupId": "og_demo_registry_holding",
+      "verification": {
+        "method": "quote-exact",
+        "checkedAt": "2026-11-07T00:00:00+08:00",
+        "matches": true
+      }
+    }
+  ],
+  "data": {
+    "asOfLabel": "2026-09-30",
+    "capTable": [
+      {
+        "holder": "示例控股有限公司",
+        "holderId": "co_示例控股",
+        "directPct": 42.5,
+        "indirectPct": 0,
+        "totalPct": 42.5,
+        "type": "境内法人",
+        "note": "示例数据"
+      },
+      {
+        "holder": "示例投资合伙企业（有限合伙）",
+        "holderId": "co_示例投资",
+        "directPct": 15.2,
+        "indirectPct": 0,
+        "totalPct": 15.2,
+        "type": "有限合伙",
+        "note": "示例数据"
+      },
+      {
+        "holder": "示例二号基金",
+        "holderId": "co_示例二号",
+        "directPct": 12,
+        "indirectPct": 0,
+        "totalPct": 12,
+        "type": "基金",
+        "note": "示例数据"
+      },
+      {
+        "holder": "其他股东",
+        "holderId": "co_other",
+        "directPct": 30.3,
+        "indirectPct": 0,
+        "totalPct": 30.3,
+        "type": "其他",
+        "note": "示例数据"
+      }
+    ],
+    "layers": [
+      {
+        "level": 1,
+        "holder": "示例控股有限公司",
+        "subject": "示例科技股份有限公司",
+        "pct": 42.5,
+        "basis": "直接持股",
+        "note": "示例数据"
+      }
+    ],
+    "ubo": [
+      {
+        "name": "张三",
+        "pct": 42.5,
+        "basis": "通过示例控股有限公司间接持有",
+        "confidence": "high"
+      }
+    ],
+    "control": [
+      {
+        "name": "张三",
+        "role": "实际控制人",
+        "basis": "持有示例控股 100% 股权并任董事长",
+        "note": "示例数据"
+      }
+    ],
+    "specialRights": [
+      {
+        "type": "回购权",
+        "holder": "示例二号基金",
+        "terms": "示例条款；触发条件待核",
+        "sourceIds": [
+          "ev_demo_announcement_1"
+        ]
+      }
+    ],
+    "history": [
+      {
+        "date": "2015-06-01",
+        "event": "公司设立",
+        "detail": "示例数据",
+        "sourceIds": [
+          "ev_demo_registry_1"
+        ]
+      }
+    ]
+  }
+}

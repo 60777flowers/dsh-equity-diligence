@@ -1,0 +1,5 @@
+# 一级市场调查工作台（Host + Web Client）
+# 只 insert 自己的一行，不改动任何官方行；卸载时删除本行与 profile 依赖即可。
+- insert:
+    - id: equity-diligence
+      name: 'dsh-equity-diligence'

@@ -1,0 +1,11 @@
+{
+  "minEvidence": 5,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.litigation",
+    "data.enforcement",
+    "data.dishonest",
+    "data.frozen"
+  ],
+  "maxEstimatedRatio": 0.1
+}

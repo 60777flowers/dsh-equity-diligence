@@ -1,0 +1,52 @@
+apiVersion: equity.module/v1
+id: builtin/policy-exposure
+name: 出口管制与地缘合规
+version: 0.1.0
+kind: collect
+stageHint: risk
+scope: company
+description: 核对 BIS/OFAC/EU/UN/商务部清单、物项与交易对手暴露。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: business.segment
+    onMissing: block
+  - type: ip.portfolio
+    onMissing: block
+references:
+  - type: valuechain.parties
+  - type: supply.capacity
+outputs:
+  - type: policy.exposure
+    typeVersion: 1
+params:
+  - key: listAsOf
+    type: string
+    default: ""
+    label: 清单版本日期
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 20
+  tokensPerUnit: 60000
+  wallClockMinPerUnit: 30
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

@@ -1,0 +1,34 @@
+# 依赖与本地工具
+node_modules/
+.tools/
+pnpm-lock.yaml
+
+# 本地安装备份（含 profile 绝对路径，不入库）
+.backup/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 测试与构建产物
+tests/.tmp/
+tests/fixtures/_build/
+tests/fixtures/tmp-*/
+tests/fixtures/live-smoke/
+*.inspect.json
+
+# 调查项目运行时目录（含证据原文与出网日志，不入库）
+.equity/
+equity-projects/
+
+# 日志与临时文件
+*.log
+*.tmp
+~$*
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini

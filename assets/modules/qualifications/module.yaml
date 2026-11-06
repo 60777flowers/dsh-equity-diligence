@@ -1,0 +1,49 @@
+apiVersion: equity.module/v1
+id: builtin/qualifications
+name: 资质、认定与准入
+version: 0.1.0
+kind: collect
+stageHint: tech
+scope: company
+description: 梳理高企、专精特新、行业许可、体系认证及有效期。
+status: draft
+provenance:
+  author: ai-draft
+  origin: agent
+inputs:
+  - type: company.identity
+    onMissing: block
+references:
+  - type: business.segment
+outputs:
+  - type: qualifications
+    typeVersion: 1
+params:
+  - key: includeExpired
+    type: boolean
+    default: false
+    label: 是否含已过期
+render:
+  system: ../_shared/_system.md
+  task: prompts/collect.md
+  tail: ../_shared/_tail.md
+gates:
+  - id: schema
+    type: schema
+  - id: coverage
+    type: coverage
+    config:
+      min: 0.7
+review:
+  mode: single
+  maxRounds: 1
+budget:
+  toolCallsPerUnit: 14
+  tokensPerUnit: 40000
+  wallClockMinPerUnit: 20
+tools:
+  - web_search
+  - web_fetch
+  - equity_record
+compat:
+  kernel: ">=1.0 <2"

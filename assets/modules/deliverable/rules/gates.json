@@ -1,0 +1,98 @@
+{
+  "requiredFields": [
+    "data.generatedAt",
+    "data.files",
+    "data.summaryFindings",
+    "data.qa"
+  ],
+  "minItems": {
+    "data.summaryFindings": 5,
+    "data.files": 1
+  },
+  "maxEstimatedRatio": 0,
+  "consistency": [
+    {
+      "id": "summaryCountRange",
+      "kind": "range",
+      "field": "data.summaryFindings",
+      "min": 5,
+      "max": 10,
+      "onFail": "block",
+      "note": "摘要 5–10 条；少于 5 条视为调查不足，多于 10 条视为未取舍"
+    },
+    {
+      "id": "summaryPinned",
+      "kind": "requiredFieldsWhen",
+      "field": "data.summaryFindings[]",
+      "required": [
+        "findingId",
+        "fact",
+        "impact",
+        "evidenceStrength",
+        "materiality",
+        "nextStep",
+        "claimId",
+        "artifactId"
+      ],
+      "onFail": "block",
+      "note": "每条摘要必须五段式齐全并挂 claimId 与 artifactId，缺一不得进摘要"
+    },
+    {
+      "id": "qaPassedImpliesNoBlocking",
+      "kind": "crossFieldEqual",
+      "expr": "qa.passed == (qa.blocking == 0)",
+      "fields": [
+        "data.qa.passed",
+        "data.qa.blocking"
+      ],
+      "onFail": "block",
+      "note": "qa.passed 只能等于 blocking==0；不得人工置 true"
+    },
+    {
+      "id": "fileHashPresent",
+      "kind": "requiredFieldsWhen",
+      "field": "data.files[]",
+      "required": [
+        "path",
+        "sha256",
+        "kind",
+        "size"
+      ],
+      "onFail": "block",
+      "note": "manifest 每个文件必须有 sha256 与大小，便于复核与回滚"
+    },
+    {
+      "id": "signoffNotAutoApproved",
+      "kind": "mustBeEmpty",
+      "field": "data.signoff.approvedBy",
+      "when": "data.signoff.signedAt == null",
+      "onFail": "block",
+      "note": "Agent 只能 proposeReview：approvedBy 与 signedAt 由人工通道填写"
+    },
+    {
+      "id": "materialFlagInSummary",
+      "kind": "crossRef",
+      "reference": "risk.redflags",
+      "when": "risk.redflags.data.flags[].level == 'material'",
+      "require": "data.summaryFindings[].materiality == 'material'",
+      "onFail": "block",
+      "note": "重大红旗必须进摘要首页；不进摘要即阻断签发"
+    },
+    {
+      "id": "cellMapPinned",
+      "kind": "requiredFieldsWhen",
+      "field": "data.cellMap[]",
+      "required": [
+        "location",
+        "claimId",
+        "artifactId",
+        "artifactRevision",
+        "artifactContentHash",
+        "value",
+        "evidenceIds"
+      ],
+      "onFail": "block",
+      "note": "工作簿每个数字单元格必须 pin 到 claim 与底稿版本，缺 pin 视为血缘断裂"
+    }
+  ]
+}

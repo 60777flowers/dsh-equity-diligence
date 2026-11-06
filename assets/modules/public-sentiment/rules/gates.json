@@ -1,0 +1,10 @@
+{
+  "minEvidence": 5,
+  "minCoverage": 0.6,
+  "requiredFields": [
+    "data.incidents",
+    "data.sentiment",
+    "data.stakeholders"
+  ],
+  "maxEstimatedRatio": 0.2
+}

@@ -1,0 +1,41 @@
+apiVersion: equity.playbook/v1
+id: standard-dd
+name: 标准尽调版
+version: 1.0.0
+preset: standard
+targets:
+  scope: company
+  from: company.roster
+stages:
+  - { id: identity, name: 主体识别 }
+  - { id: ownership, name: 股权与控制 }
+  - { id: people, name: 人与组织 }
+  - { id: business, name: 业务与产业链 }
+  - { id: tech, name: 技术与资质 }
+  - { id: finance, name: 财务与融资 }
+  - { id: risk, name: 风险与合规 }
+  - { id: market, name: 行业与竞争 }
+  - { id: assessment, name: 评估与红旗 }
+  - { id: delivery, name: 交付 }
+modules:
+  - { id: entity-resolution, use: builtin/entity-resolution@^0.1, stage: identity }
+  - { id: ownership-chain, use: builtin/ownership-chain@^0.1, stage: ownership }
+  - { id: investment-map, use: builtin/investment-map@^0.2, stage: ownership }
+  - { id: related-parties, use: builtin/related-parties@^0.1, stage: ownership }
+  - { id: org-people, use: builtin/org-people@^0.1, stage: people }
+  - { id: business-segment, use: builtin/business-segment@^0.1, stage: business }
+  - { id: customers-orders, use: builtin/customers-orders@^0.1, stage: business }
+  - { id: supply-capacity, use: builtin/supply-capacity@^0.1, stage: business }
+  - { id: market-landscape, use: builtin/market-landscape@^0.1, stage: market }
+  - { id: ip-portfolio, use: builtin/ip-portfolio@^0.1, stage: tech }
+  - { id: qualifications, use: builtin/qualifications@^0.1, stage: tech }
+  - { id: financials-public, use: builtin/financials-public@^0.1, stage: finance }
+  - { id: financing-history, use: builtin/financing-history@^0.1, stage: finance }
+  - { id: legal-risk, use: builtin/legal-risk@^0.1, stage: risk }
+  - { id: regulatory-compliance, use: builtin/regulatory-compliance@^0.1, stage: risk }
+  - { id: assessment-fit, use: builtin/assessment-fit@^0.1, stage: assessment }
+  - { id: red-flags, use: builtin/red-flags@^0.1, stage: assessment }
+  - { id: deliverable, use: builtin/deliverable@^0.1, stage: delivery }
+budget:
+  maxTokens: 42000000
+  maxWallClockMin: 720

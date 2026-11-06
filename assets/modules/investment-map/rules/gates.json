@@ -1,0 +1,60 @@
+{
+  "minEvidence": 3,
+  "minCoverage": 0.8,
+  "requiredFields": ["data.mode"],
+  "maxEstimatedRatio": 0,
+  "consistency": [
+    {
+      "id": "platformIdFormat",
+      "kind": "regex",
+      "field": "data.platformId",
+      "pattern": "^P\\d{2}$",
+      "onFail": "block",
+      "note": "平台编号必须是 P01 形式；分区键与 data.platformId 必须一致"
+    },
+    {
+      "id": "platformIdUnique",
+      "kind": "unique",
+      "field": "data.platforms[].platformId",
+      "when": "data.mode == 'summary'",
+      "onFail": "block",
+      "note": "同一编号只能出现一次；更名不新建编号"
+    },
+    {
+      "id": "summaryCountMatches",
+      "kind": "countMatches",
+      "when": "data.mode == 'summary'",
+      "fields": ["data.platformCount", "data.platforms"],
+      "onFail": "issue",
+      "note": "platformCount 必须等于 platforms 长度；entityCount 必须等于各平台 entityCount 之和（实体全称去重）"
+    },
+    {
+      "id": "categoryInNineClasses",
+      "kind": "enumMember",
+      "field": "data.category",
+      "when": "data.mode == 'platform'",
+      "allowed": ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+      "onFail": "issue",
+      "note": "九类出口之外不得新建分类；跨类在 note 说明主职能"
+    },
+    {
+      "id": "entityPathContainsPlatform",
+      "kind": "contains",
+      "when": "data.mode == 'platform'",
+      "field": "data.entities[].path",
+      "mustContain": "data.platformId",
+      "onFail": "issue",
+      "note": "path 必须是 A公司 → 本平台 → 实体的完整箭头链，不得省略中间层"
+    },
+    {
+      "id": "entityPctRange",
+      "kind": "range",
+      "when": "data.mode == 'platform'",
+      "field": "data.entities[].totalPct",
+      "min": 0,
+      "max": 100,
+      "onFail": "block",
+      "note": "合计比例必须在 0–100；超过 100 说明方向写反或多路径重复相加"
+    }
+  ]
+}

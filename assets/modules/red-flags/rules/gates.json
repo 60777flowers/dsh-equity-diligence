@@ -1,0 +1,73 @@
+{
+  "minEvidence": 2,
+  "minCoverage": 0.7,
+  "requiredFields": ["data.triggerResults", "data.claimMatrix", "data.flags"],
+  "minItems": { "data.triggerResults": 12, "data.claimMatrix": 1 },
+  "maxEstimatedRatio": 0,
+  "consistency": [
+    {
+      "id": "triggerSetComplete",
+      "kind": "setEquals",
+      "field": "data.triggerResults[].triggerId",
+      "expected": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"],
+      "onFail": "block",
+      "note": "12 条触发器必须全部出现；缺一条视为未运行，不得进入交付"
+    },
+    {
+      "id": "triggerUnique",
+      "kind": "unique",
+      "field": "data.triggerResults[].triggerId",
+      "onFail": "issue",
+      "note": "同一触发器只允许一条结果，不得用多条命中堆叠严重程度"
+    },
+    {
+      "id": "materialFlagHasEvidence",
+      "kind": "requiredWhen",
+      "field": "data.flags[].evidenceIds",
+      "when": "data.flags[].level == 'material'",
+      "minItems": 1,
+      "onFail": "block",
+      "note": "material 红旗必须挂证据；无证据的命中降级为 attention 或改判 insufficient"
+    },
+    {
+      "id": "flagClaimRefsExist",
+      "kind": "refExists",
+      "field": "data.flags[].claimIds",
+      "target": "claims[].claimId",
+      "onFail": "issue",
+      "note": "红旗引用的 claimId 必须存在于本底稿 claims，不得悬空引用"
+    },
+    {
+      "id": "insufficientHasDdRequest",
+      "kind": "crossRef",
+      "when": "data.triggerResults[].status == 'insufficient'",
+      "require": "data.ddRequests.length >= 1",
+      "onFail": "issue",
+      "note": "证据不足必须给出待核清单；只写 insufficient 不写动作等于没查"
+    },
+    {
+      "id": "flagLevelEnum",
+      "kind": "enumMember",
+      "field": "data.flags[].level",
+      "allowed": ["attention", "material"],
+      "onFail": "block",
+      "note": "红旗级别只用 attention/material；不得自造级别"
+    },
+    {
+      "id": "triggerStatusEnum",
+      "kind": "enumMember",
+      "field": "data.triggerResults[].status",
+      "allowed": ["hit", "miss", "insufficient"],
+      "onFail": "block",
+      "note": "触发器状态只用三值；不得用 found/unknown 等替代"
+    },
+    {
+      "id": "noVerdictLanguage",
+      "kind": "forbiddenText",
+      "fields": ["data.flags[].desc", "data.triggerResults[].action"],
+      "forbidden": ["违规", "造假", "财务舞弊", "利益输送", "否决投资", "建议不投"],
+      "onFail": "block",
+      "note": "触发器只生成核查项，不得下定性结论或投资建议"
+    }
+  ]
+}

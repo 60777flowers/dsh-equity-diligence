@@ -1,0 +1,331 @@
+{
+  "artifacts": [
+    {
+      "type": "investment.map",
+      "partitionKey": "_summary",
+      "output": {
+        "asOf": "2026-09-30",
+        "openQuestions": [
+          "示例数据：九类出口未穷尽"
+        ],
+        "flags": [
+          {
+            "level": "attention",
+            "rule": "demo_fixture",
+            "desc": "离线验收样例，数据为结构性示例"
+          }
+        ],
+        "sourceCoverage": {
+          "queries": [
+            {
+              "query": "示例科技 对外投资 平台",
+              "engine": "fixture",
+              "at": "2026-11-07T00:00:00+08:00",
+              "resultCount": 3,
+              "outcome": "ok"
+            }
+          ],
+          "databases": [
+            "fixture-announcement"
+          ],
+          "retrievedAt": "2026-11-07T00:00:00+08:00",
+          "limitations": [
+            "示例数据，不是事实"
+          ]
+        },
+        "claims": [
+          {
+            "claimId": "cl_demo_platform_count",
+            "subjectId": "co_示例科技",
+            "predicate": "platform_count",
+            "value": 1,
+            "unit": "count",
+            "period": {
+              "asOf": "2026-09-30"
+            },
+            "status": "found",
+            "materiality": "material",
+            "evidenceLinks": [
+              {
+                "evidenceId": "ev_demo_im_sum_1",
+                "role": "supports",
+                "locator": "p.30 投资情况"
+              }
+            ],
+            "note": "示例数据"
+          }
+        ],
+        "evidence": [
+          {
+            "evidenceId": "ev_demo_im_sum_1",
+            "url": "https://example.com/demo/im/summary-1",
+            "title": "示例科技 2025 年报（示例）",
+            "quote": "公司通过示例一号基金持有实体甲 33.34% 权益。",
+            "locator": "p.30 投资情况",
+            "sourceTier": "announcement",
+            "sourceAuthority": "A",
+            "sourceIndependence": "independent",
+            "verificationStatus": "verified",
+            "claimConfidence": "high",
+            "asOf": "2026-09-30",
+            "publishedAt": "2026-04-20",
+            "retrievedAt": "2026-11-07T00:00:00+08:00",
+            "rawHash": "sha256:ev_demo_im_sum_1000000000000000000000000000000000000000000000000",
+            "originGroupId": "og_demo_im",
+            "verification": {
+              "method": "quote-exact",
+              "checkedAt": "2026-11-07T00:00:00+08:00",
+              "matches": true
+            }
+          },
+          {
+            "evidenceId": "ev_demo_im_sum_2",
+            "url": "https://example.com/demo/im/summary-2",
+            "title": "示例一号基金备案信息（示例）",
+            "quote": "基金管理人为示例资本管理有限公司。",
+            "locator": "备案信息第 1 页",
+            "sourceTier": "announcement",
+            "sourceAuthority": "A",
+            "sourceIndependence": "independent",
+            "verificationStatus": "verified",
+            "claimConfidence": "high",
+            "asOf": "2026-09-30",
+            "publishedAt": "2026-04-20",
+            "retrievedAt": "2026-11-07T00:00:00+08:00",
+            "rawHash": "sha256:ev_demo_im_sum_2000000000000000000000000000000000000000000000000",
+            "originGroupId": "og_demo_im",
+            "verification": {
+              "method": "quote-exact",
+              "checkedAt": "2026-11-07T00:00:00+08:00",
+              "matches": true
+            }
+          },
+          {
+            "evidenceId": "ev_demo_im_sum_3",
+            "url": "https://example.com/demo/im/summary-3",
+            "title": "示例科技公告（示例）",
+            "quote": "公司认缴示例一号基金份额。",
+            "locator": "公告正文第 2 段",
+            "sourceTier": "announcement",
+            "sourceAuthority": "A",
+            "sourceIndependence": "independent",
+            "verificationStatus": "verified",
+            "claimConfidence": "high",
+            "asOf": "2026-09-30",
+            "publishedAt": "2026-04-20",
+            "retrievedAt": "2026-11-07T00:00:00+08:00",
+            "rawHash": "sha256:ev_demo_im_sum_3000000000000000000000000000000000000000000000000",
+            "originGroupId": "og_demo_im",
+            "verification": {
+              "method": "quote-exact",
+              "checkedAt": "2026-11-07T00:00:00+08:00",
+              "matches": true
+            }
+          }
+        ],
+        "data": {
+          "mode": "summary",
+          "platformCount": 1,
+          "entityCount": 2,
+          "overseasCount": 0,
+          "categories": [
+            {
+              "category": "3",
+              "count": 1
+            }
+          ],
+          "platforms": [
+            {
+              "platformId": "P01",
+              "name": "示例一号基金",
+              "category": "3",
+              "role": "主导LP",
+              "entityCount": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "investment.map",
+      "partitionKey": "P01",
+      "output": {
+        "asOf": "2026-09-30",
+        "openQuestions": [
+          "示例数据：基金其他被投未穷尽"
+        ],
+        "flags": [
+          {
+            "level": "attention",
+            "rule": "demo_fixture",
+            "desc": "离线验收样例，数据为结构性示例"
+          }
+        ],
+        "sourceCoverage": {
+          "queries": [
+            {
+              "query": "示例一号基金 被投",
+              "engine": "fixture",
+              "at": "2026-11-07T00:00:00+08:00",
+              "resultCount": 2,
+              "outcome": "ok"
+            }
+          ],
+          "databases": [
+            "fixture-announcement"
+          ],
+          "retrievedAt": "2026-11-07T00:00:00+08:00",
+          "limitations": [
+            "示例数据，不是事实"
+          ]
+        },
+        "claims": [
+          {
+            "claimId": "cl_demo_p01_entities",
+            "subjectId": "co_示例科技",
+            "predicate": "investment_platform_entities",
+            "value": 2,
+            "unit": "count",
+            "period": {
+              "asOf": "2026-09-30"
+            },
+            "status": "found",
+            "materiality": "material",
+            "evidenceLinks": [
+              {
+                "evidenceId": "ev_demo_im_p01_1",
+                "role": "supports",
+                "locator": "备案信息第 2 页"
+              },
+              {
+                "evidenceId": "ev_demo_im_p01_2",
+                "role": "supports",
+                "locator": "登记信息第 1 页"
+              }
+            ],
+            "note": "示例数据"
+          }
+        ],
+        "evidence": [
+          {
+            "evidenceId": "ev_demo_im_p01_1",
+            "url": "https://example.com/demo/im/p01-1",
+            "title": "示例一号基金备案信息（示例）",
+            "quote": "示例一号基金持有实体甲科技有限公司 33.34% 股权。",
+            "locator": "备案信息第 2 页",
+            "sourceTier": "announcement",
+            "sourceAuthority": "A",
+            "sourceIndependence": "independent",
+            "verificationStatus": "verified",
+            "claimConfidence": "high",
+            "asOf": "2026-09-30",
+            "publishedAt": "2026-04-20",
+            "retrievedAt": "2026-11-07T00:00:00+08:00",
+            "rawHash": "sha256:ev_demo_im_p01_1000000000000000000000000000000000000000000000000",
+            "originGroupId": "og_demo_im",
+            "verification": {
+              "method": "quote-exact",
+              "checkedAt": "2026-11-07T00:00:00+08:00",
+              "matches": true
+            }
+          },
+          {
+            "evidenceId": "ev_demo_im_p01_2",
+            "url": "https://example.com/demo/im/p01-2",
+            "title": "实体甲工商信息（示例）",
+            "quote": "实体甲科技有限公司股东包含示例一号基金。",
+            "locator": "登记信息第 1 页",
+            "sourceTier": "announcement",
+            "sourceAuthority": "A",
+            "sourceIndependence": "independent",
+            "verificationStatus": "verified",
+            "claimConfidence": "high",
+            "asOf": "2026-09-30",
+            "publishedAt": "2026-04-20",
+            "retrievedAt": "2026-11-07T00:00:00+08:00",
+            "rawHash": "sha256:ev_demo_im_p01_2000000000000000000000000000000000000000000000000",
+            "originGroupId": "og_demo_im",
+            "verification": {
+              "method": "quote-exact",
+              "checkedAt": "2026-11-07T00:00:00+08:00",
+              "matches": true
+            }
+          },
+          {
+            "evidenceId": "ev_demo_im_p01_3",
+            "url": "https://example.com/demo/im/p01-3",
+            "title": "实体乙工商信息（示例）",
+            "quote": "实体乙材料有限公司股东包含示例一号基金。",
+            "locator": "登记信息第 1 页",
+            "sourceTier": "announcement",
+            "sourceAuthority": "A",
+            "sourceIndependence": "independent",
+            "verificationStatus": "verified",
+            "claimConfidence": "high",
+            "asOf": "2026-09-30",
+            "publishedAt": "2026-04-20",
+            "retrievedAt": "2026-11-07T00:00:00+08:00",
+            "rawHash": "sha256:ev_demo_im_p01_3000000000000000000000000000000000000000000000000",
+            "originGroupId": "og_demo_im",
+            "verification": {
+              "method": "quote-exact",
+              "checkedAt": "2026-11-07T00:00:00+08:00",
+              "matches": true
+            }
+          }
+        ],
+        "data": {
+          "mode": "platform",
+          "platformId": "P01",
+          "name": "示例一号基金",
+          "fullName": "示例一号股权投资基金合伙企业（有限合伙）",
+          "category": "3",
+          "role": "主导LP",
+          "vehicles": [
+            {
+              "name": "示例资本管理有限公司",
+              "role": "GP",
+              "note": "示例数据"
+            }
+          ],
+          "entities": [
+            {
+              "name": "实体甲",
+              "fullName": "实体甲科技有限公司",
+              "subjectId": "co_实体甲",
+              "path": "示例科技 → P01 示例一号基金 → 实体甲",
+              "directPct": 0,
+              "indirectPct": 33.34,
+              "totalPct": 33.34,
+              "status": "存续",
+              "note": "示例数据"
+            },
+            {
+              "name": "实体乙",
+              "fullName": "实体乙材料有限公司",
+              "subjectId": "co_实体乙",
+              "path": "示例科技 → P01 示例一号基金 → 实体乙",
+              "directPct": 0,
+              "indirectPct": 12.5,
+              "totalPct": 12.5,
+              "status": "存续",
+              "note": "示例数据"
+            }
+          ],
+          "evidenceSummary": "示例数据：基金备案与投资路径待真实来源核验"
+        }
+      }
+    }
+  ],
+  "tokens": 0,
+  "toolCalls": 2,
+  "searches": [
+    {
+      "query": "示例科技 对外投资 平台",
+      "engine": "fixture",
+      "at": "2026-11-07T00:00:00+08:00",
+      "resultCount": 3,
+      "outcome": "ok"
+    }
+  ]
+}

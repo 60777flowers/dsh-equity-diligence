@@ -1,0 +1,11 @@
+{
+  "minEvidence": 5,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.headcount"
+  ],
+  "minItems": {
+    "data.structure": 2
+  },
+  "maxEstimatedRatio": 0.2
+}

@@ -1,0 +1,66 @@
+{
+  "minEvidence": 4,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.parties",
+    "data.transactions",
+    "data.overlapFlags"
+  ],
+  "minItems": {
+    "data.parties": 1
+  },
+  "sixStateFields": [
+    "data.parties[].relation",
+    "data.transactions[].amount",
+    "data.transactions[].pricing",
+    "data.transactions[].approval"
+  ],
+  "maxEstimatedRatio": 0.1,
+  "consistency": [
+    {
+      "id": "tx-direction-enum",
+      "kind": "enum",
+      "path": "data.transactions[].direction",
+      "values": [
+        "purchase",
+        "sale",
+        "loan_in",
+        "loan_out",
+        "guarantee",
+        "lease",
+        "service",
+        "asset_transfer",
+        "other"
+      ],
+      "onFail": "block"
+    },
+    {
+      "id": "tx-counterparty-in-parties",
+      "kind": "subset_of",
+      "left": "data.transactions[].counterparty",
+      "right": "data.parties[].name",
+      "onFail": "attention"
+    },
+    {
+      "id": "tx-period-with-amount",
+      "kind": "required_with",
+      "path": "data.transactions[].period",
+      "when": "data.transactions[].amount",
+      "onFail": "block"
+    },
+    {
+      "id": "overlap-no-conclusion",
+      "kind": "banned_terms",
+      "path": "data.overlapFlags[].note",
+      "terms": [
+        "利益输送",
+        "违规",
+        "造假",
+        "舞弊",
+        "虚增",
+        "已认定"
+      ],
+      "onFail": "block"
+    }
+  ]
+}

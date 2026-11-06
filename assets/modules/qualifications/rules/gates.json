@@ -1,0 +1,69 @@
+{
+  "minEvidence": 2,
+  "minCoverage": 0.7,
+  "requiredFields": [
+    "data.items",
+    "data.certifications",
+    "data.licenses"
+  ],
+  "minItems": {
+    "data.items": 1
+  },
+  "sixStateFields": [
+    "data.items[].number",
+    "data.items[].validTo",
+    "data.items[].status",
+    "data.certifications[].scope",
+    "data.licenses[].scope"
+  ],
+  "maxEstimatedRatio": 0,
+  "consistency": [
+    {
+      "id": "validity-order",
+      "kind": "order",
+      "left": "data.items[].validTo",
+      "right": "data.items[].validFrom",
+      "relation": "gte",
+      "onFail": "block"
+    },
+    {
+      "id": "status-enum",
+      "kind": "enum",
+      "path": "data.items[].status",
+      "values": [
+        "有效",
+        "公示中",
+        "已过期",
+        "已撤销",
+        "已注销",
+        "暂停",
+        "未披露"
+      ],
+      "onFail": "block"
+    },
+    {
+      "id": "expired-tagged",
+      "kind": "order_conditional",
+      "dateField": "data.items[].validTo",
+      "compareTo": "asOf",
+      "relation": "lt",
+      "requireValue": "data.items[].status",
+      "equals": "已过期",
+      "onFail": "block"
+    },
+    {
+      "id": "issuer-required",
+      "kind": "required_with",
+      "path": "data.items[].issuer",
+      "when": "data.items[].number",
+      "onFail": "attention"
+    },
+    {
+      "id": "certification-scope-required",
+      "kind": "required_with",
+      "path": "data.certifications[].scope",
+      "when": "data.certifications[].number",
+      "onFail": "block"
+    }
+  ]
+}
