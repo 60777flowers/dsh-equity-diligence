@@ -17,7 +17,7 @@ export const MODULE_KINDS = ['collect', 'verify', 'synthesize', 'assess', 'deliv
 export const SCOPES = ['company', 'project']
 export const STAGE_HINTS = ['identity', 'ownership', 'people', 'business', 'tech', 'finance', 'risk', 'market', 'assessment', 'delivery', 'investigation']
 export const GATE_TYPES = ['schema', 'rule', 'coverage', 'rubric', 'checklist']
-// provenance.origin：human = 人工编写并对该方法论负责；agent = 子代理初稿，待人工接管
+// provenance.origin：human = 人工编写并对该方法论负责；agent = AI 初稿（author 默认 ai-draft），待人工接管
 export const PROVENANCE_ORIGINS = ['human', 'agent']
 export const DEFAULT_TOOLS = [
   'web_search', 'web_fetch', 'skill', 'equity_project', 'equity_playbook',

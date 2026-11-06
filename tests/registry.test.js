@@ -51,7 +51,7 @@ test('registry: every module declares provenance so authors can be told apart', 
   assert.equal(map.provenance.origin, 'human')
   assert.equal(map.provenance.author, '60777flowers')
   assert.ok(map.provenance.derivedFrom, 'investment-map 应写明 derivedFrom')
-  // 其余模块是子代理初稿，不得冒充人工实现
+  // 其余模块是 AI 初稿，不得冒充人工实现
   const others = library.moduleList.filter((module) => module.id !== 'builtin/investment-map')
   assert.equal(others.filter((module) => module.provenance.origin === 'human').length, 0)
   // 该字段要能被 UI 与外部脚本读到

@@ -696,11 +696,11 @@ def build_checkup_rows(meta: dict, summary: dict, qa: dict, signoff: dict, stats
     invalid_states = stats.get("invalidStates", [])
     rows.append(
         [
-            "六态字段",
+            "状态字段（8 个取值）",
             "通过" if not invalid_states else "警告",
             "02–05 状态列取值均在契约 §3.4 口径内。"
             if not invalid_states
-            else "以下状态值不在六态口径内：" + "；".join(invalid_states[:10]),
+            else "以下状态值不在状态字段口径内（应为 8 个取值之一）：" + "；".join(invalid_states[:10]),
         ]
     )
 

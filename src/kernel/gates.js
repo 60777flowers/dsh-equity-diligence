@@ -360,12 +360,12 @@ function checkRule(rule, output) {
   for (const path of rule.sixStateFields ?? []) {
     const values = getByPathValues(output, path)
     if (values.length === 0) {
-      checks.push(fail(`sixState:${path}`, `${path} 未找到六态字段`))
+      checks.push(fail(`sixState:${path}`, `${path} 未找到状态字段`))
       continue
     }
     for (const value of values) {
       if (!isPlainObject(value) || !SIX_STATES.has(value.status)) {
-        checks.push(fail(`sixState:${path}`, `${path} 不是六态字段`))
+        checks.push(fail(`sixState:${path}`, `${path} 不是状态字段`))
       } else if (value.status === 'not_disclosed_after_search' && !value.note) {
         checks.push(fail(`sixStateNote:${path}`, `${path} 未披露但缺少检索说明`))
       }

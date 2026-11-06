@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""交付包一致性体检：结构 / 列语义 / 六态 / 空值 / 公式 / 多路径 / 标绿。
+"""交付包一致性体检：结构 / 列语义 / 状态字段（8 个取值） / 空值 / 公式 / 多路径 / 标绿。
 
 读取：
     <dir>/02_综合尽调工作簿.xlsx
@@ -626,7 +626,7 @@ def check_six_states(report: Report, workbook02: Any) -> None:
     if invalid:
         report.block(
             "six_states",
-            f"02 状态列有 {len(invalid)} 个取值不在六态口径内",
+            f"02 状态列有 {len(invalid)} 个取值不在状态字段口径内（应为 8 个取值之一）",
             FILE_COMPREHENSIVE,
             len(invalid),
             invalid,
@@ -1084,7 +1084,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="check_deliverable.py",
         description=(
             "交付包体检：结构（11 sheet / 7+N / 20 列）、列语义（比例/股东数/金额/日期/三选一评估）、"
-            "六态、空值、公式、多路径、标绿一致性、workbook_map 一致性。\n"
+            "状态字段（8 个取值）、空值、公式、多路径、标绿一致性、workbook_map 一致性。\n"
             "只读交付文件；输出 JSON {blocking, warnings, passed}。"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

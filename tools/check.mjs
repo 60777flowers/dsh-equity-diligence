@@ -23,6 +23,12 @@ for (const file of files) {
 
 const library = await loadLibrary({ strict: true })
 const errors = []
+// 文档一致性（目录↔标题、锚点、计数表述）。失败时子进程会打印明细并以非 0 退出。
+try {
+  execFileSync(process.execPath, [join(root, 'tools', 'check-docs.mjs')], { stdio: 'inherit' })
+} catch {
+  errors.push({ code: 'docs_inconsistent', message: '文档一致性检查失败，见上方输出' })
+}
 for (const name of ['skill-only', 'quick', 'standard', 'deep', 'generic']) {
   const playbook = await loadPreset(name)
   const result = compilePlaybook({ library, project: { projectId: 'eq_check', budget: {} }, playbook })

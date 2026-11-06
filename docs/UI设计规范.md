@@ -2,7 +2,7 @@
 
 > 版本 v1.0 · 2026-11-07 · 状态：设计冻结稿（供内核 / 执行器 / Client UI / 交付 / QA 实现）
 > 读者：Client UI 实现者、内核 API 维护者、交付与 QA。
-> 依据：`docs/实现契约.md` v1.0（32 类底稿、六态字段、五页签、`/api/equity/*`）；`../docs/工作计划.md` §9「UI 纲要」（任务书写的 `../../docs/工作计划.md` 不存在，实际文件在插件上一级 `docs/`）；Anthropic Finance skills 的 `3-statement-model` / `comps-analysis` / `datapack-builder` / `ib-check-deck`；DSH `@deepseek-ai/dsh-client-ui-theme` 0.2.1-rc.5 的 `--dsw-*` token 实测值。
+> 依据：`docs/实现契约.md` v1.0（32 类底稿、状态字段（旧称六态，8 个取值）、五页签、`/api/equity/*`）；`../docs/工作计划.md` §9「UI 纲要」（任务书写的 `../../docs/工作计划.md` 不存在，实际文件在插件上一级 `docs/`）；Anthropic Finance skills 的 `3-statement-model` / `comps-analysis` / `datapack-builder` / `ib-check-deck`；DSH `@deepseek-ai/dsh-client-ui-theme` 0.2.1-rc.5 的 `--dsw-*` token 实测值。
 > 边界：本文件只定义视觉与交互，不定义数据模型。字段含义、状态机、API 一律以契约为准。
 
 ## 1. 设计原则
