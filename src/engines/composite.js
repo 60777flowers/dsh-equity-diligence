@@ -131,7 +131,7 @@ export class CompositeExecutor {
               files,
               summaryFindings,
               cellMap: result.manifest.cellMap ?? [],
-              qa: { blocking: result.qa.blocking.length, warnings: result.qa.warnings.length, passed: result.qa.passed },
+              qa: { blocking: result.qa.blocking, warnings: result.qa.warnings, passed: result.qa.passed },
               signoff,
             },
           },

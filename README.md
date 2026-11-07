@@ -4,12 +4,12 @@
 
 面向一级股权市场从业者（PE / VC / CVC / 战投 / FA）的调查工作台，以 [DeepSeek Harness](https://github.com/deepseek-ai) 插件形式运行在 Web GUI 中：
 
-`25` 个内置模块（23 个专用方向 + 1 个通用兜底 + 1 个交付构建器） · `32` 类类型化底稿 · `34` 种勾稽算子 · `12` 条核查触发器 · 代码化交付验收
+`25` 个内置模块（23 个专用方向 + 1 个通用兜底 + 1 个交付构建器） · `32` 类类型化底稿 · `36` 种勾稽算子 · `12` 条核查触发器 · 代码化交付验收
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![status](https://img.shields.io/badge/status-v0.1.0%20%C2%B7%20software--complete-yellow)
+![status](https://img.shields.io/badge/status-v0.2.0%20%C2%B7%20software--complete-yellow)
 
-> **状态说明（请先读）**：软件已完整（内核、执行器、交付、UI 全链路可跑，36 项测试通过），但 **25 个模块的方法论均为 `draft`**，尚未经金融专家逐模块评审。本仓库不声称任何模块已 `stable`。见 [已知限制](#14-已知限制)。
+> **状态说明（请先读）**：软件已完整（内核、执行器、交付、UI 全链路可跑，102 项测试通过），但 **25 个模块的方法论均为 `draft`**，尚未经金融专家逐模块评审。本仓库不声称任何模块已 `stable`。见 [已知限制](#14-已知限制)。
 
 ---
 
@@ -60,7 +60,7 @@
 │         23 个专用方向 + 1 个通用兜底 + 1 个交付构建器 = 25    │
 ├───────────────────────────────────────────────────────────────┤
 │ 质量层  底稿类型化 → 勾稽可声明 → 交付代码验收                │
-│         32 类底稿 · 34 种勾稽算子 · 12 条核查触发器 · 代码验收│
+│         32 类底稿 · 36 种勾稽算子 · 12 条核查触发器 · 代码验收│
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -104,7 +104,7 @@ assets/modules/<module-id>/
 | 证据 | 结论里夹来源，无法核 | Claim–Evidence 账本，`quote` 必须逐字命中原文，原文 hash 快照不可变 |
 | 查不到 | 容易变成"无"或编一个 | 强制状态字段：`not_disclosed_after_search` 必须链到检索记录，不留空 |
 | 数据形状 | 一坨 Markdown | 32 类带 schema 的底稿，可被下游模块引用 |
-| 一致性 | 靠复查 | 34 种勾稽算子 + 交付 QA 阻断项 |
+| 一致性 | 靠复查 | 36 种勾稽算子 + 交付 QA 阻断项 |
 | 长任务 | 上下文一断就重来 | 断点恢复、幂等重跑、上游变更只标直接下游 stale |
 | 责任边界 | 说不清谁签的字 | 提议/裁决分离：Agent 只能 `propose`，`decide / signoff` 是用户专属动作 |
 
@@ -151,7 +151,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-local.ps1
 ```powershell
 node tools/validate-assets.mjs   # 32 类 / 25 模块 / 5 预设 静态校验与编译
 node tools/check.mjs             # 语法 + 资产 + 预设编译
-node --test tests/*.test.js      # 36 项测试（内核/门/管线/迁移/API/UI bundle/模块来源）
+node --test tests/*.test.js      # 102 项测试（内核/门/管线/迁移/API/UI bundle/模块来源）
 ```
 
 项目默认落在 `workspace/equity-projects/<slug>/`，可用 `root` 参数指定。
@@ -321,7 +321,7 @@ budget:
 
 ### 10.2 勾稽（Consistency）
 
-勾稽关系写在模块的 `rules/gates.json`，也可在项目级自定义。支持 34 种算子，例如：
+勾稽关系写在模块的 `rules/gates.json`，也可在项目级自定义。支持 36 种算子，例如：
 
 | 算子 | 用途 |
 |---|---|
@@ -414,6 +414,8 @@ Host
 6. **脚本能力未开放**：模块 `scripts` / L2 未开放，自定义模块默认声明式；`wrap`（包装现成 skill）为后续。
 7. **索引不是真相**：`~/.dsh/equity/projects.json` 只是索引，删了可由项目目录重建（重建命令为后续小项）。
 8. **UI 视觉验收**：已在 API + boot graph 层面验证，像素级视觉回归与深色模式/窄屏回归未做。
+9. **单用户 / 单机**：没有租户隔离、用户级权限或远程多客户边界；项目索引与已登记项目的绝对路径是全局的。HTTP 创建目录已限制在工作区/`~/.dsh/equity`，但 `/open`、`/status`、`/state` 仍按索引读取全局项目；远程部署前必须加租户层。
+10. **路径边界为词法检查**：允许根内的 junction/symlink 仍可能把写入重定向到根外；文件下载的 realpath 硬化与链接审计是后续 P1。
 
 ## 15. 合规边界
 

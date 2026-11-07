@@ -430,10 +430,72 @@
                   "additionalProperties": true,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "用户输入的名称（检索用，不得被解析结果覆盖）"
+                    },
+                    "inputName": {
+                      "type": "string",
+                      "description": "原始输入名快照，用于对照解析后的法定名称"
+                    },
+                    "legalName": {
+                      "type": "string",
+                      "description": "经核验的法定名称；仅由 entity-writeback 在 verified 且有 >=2 证据（或人工确认）时写入"
+                    },
+                    "entityId": {
+                      "type": "string",
+                      "description": "稳定内部主体 ID；v2 项目用作 subjectId，v1 项目等于旧 co_<slug>"
+                    },
+                    "identifiers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "properties": {
+                          "scheme": {
+                            "type": "string",
+                            "description": "CN_USCC / CN_LEGACY_REG_NO / SECURITY_TICKER / HK_CR_NO / LEI / AMAC_FUND_NO ..."
+                          },
+                          "value": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "jurisdiction": {
+                            "type": "string"
+                          },
+                          "verificationStatus": {
+                            "type": "string",
+                            "enum": [
+                              "unverified",
+                              "partial",
+                              "verified",
+                              "unreachable",
+                              "conflict"
+                            ]
+                          },
+                          "isPrimary": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "listingStatus": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "unlisted",
+                        "ipo_applied",
+                        "listed",
+                        "suspended",
+                        "delisted",
+                        "not_applicable"
+                      ],
+                      "description": "独立字段，默认 unknown；不得由 code/identifiers 推断"
                     },
                     "code": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "遗留只读镜像（证券代码或信用代码），不参与上市状态推断"
                     },
                     "market": {
                       "type": "string"
@@ -465,6 +527,28 @@
                     "legalName": {
                       "type": "string"
                     },
+                    "entityId": {
+                      "type": "string"
+                    },
+                    "identifiers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "listingStatus": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "unlisted",
+                        "ipo_applied",
+                        "listed",
+                        "suspended",
+                        "delisted",
+                        "not_applicable"
+                      ]
+                    },
                     "code": {
                       "type": "string"
                     },
@@ -476,6 +560,34 @@
                         "low"
                       ]
                     },
+                    "verificationStatus": {
+                      "type": "string",
+                      "enum": [
+                        "unverified",
+                        "partial",
+                        "verified",
+                        "unreachable",
+                        "conflict"
+                      ]
+                    },
+                    "evidenceCount": {
+                      "type": "number"
+                    },
+                    "contentHash": {
+                      "type": "string"
+                    },
+                    "applied": {
+                      "type": "boolean"
+                    },
+                    "appliedFields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    },
                     "candidates": {
                       "type": "array",
                       "items": {
@@ -485,6 +597,10 @@
                     }
                   }
                 }
+              },
+              "contentHash": {
+                "type": "string",
+                "description": "_resolution 分区的幂等键"
               },
               "targetCount": {
                 "type": "number"
@@ -1367,11 +1483,41 @@
             "type": "object",
             "additionalProperties": true,
             "properties": {
+              "entityId": {
+                "type": "string",
+                "description": "稳定内部主体 ID；与 roster target.entityId 对应"
+              },
+              "inputName": {
+                "type": "string",
+                "description": "本项目立项时输入的名称，用于回写匹配"
+              },
+              "entityKind": {
+                "type": "string",
+                "description": "operating_company / listed_issuer / pre_ipo_company / holding_company / subsidiary / partnership_fund / contractual_fund / corporate_fund / fund_manager / gp_entity / spv / branch ..."
+              },
+              "jurisdiction": {
+                "type": "string",
+                "description": "注册辖区（CN/HK/KY/BVI/SG ...）"
+              },
+              "listingStatus": {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "unlisted",
+                  "ipo_applied",
+                  "listed",
+                  "suspended",
+                  "delisted",
+                  "not_applicable"
+                ],
+                "description": "独立字段；不得由 code/identifiers 推断，未核实时为 unknown"
+              },
               "legalName": {
                 "type": "string"
               },
               "code": {
-                "type": "string"
+                "type": "string",
+                "description": "遗留只读镜像；新数据请用 identifiers[]"
               },
               "aliases": {
                 "type": "array",
@@ -1436,13 +1582,49 @@
                   "type": "object",
                   "additionalProperties": true,
                   "properties": {
+                    "scheme": {
+                      "type": "string",
+                      "description": "CN_USCC / CN_LEGACY_REG_NO / SECURITY_TICKER / HK_CR_NO / SG_UEN / US_STATE_FILE_NO / SEC_CIK / LEI / KY_NO / BVI_NO / AMAC_MANAGER_NO / AMAC_FUND_NO / INTERNAL_PROVISIONAL"
+                    },
                     "kind": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "遗留中文标签（统一社会信用代码等），读取时映射为 scheme"
                     },
                     "value": {
                       "type": "string"
                     },
+                    "issuer": {
+                      "type": "string",
+                      "description": "签发/登记机关"
+                    },
                     "jurisdiction": {
+                      "type": "string"
+                    },
+                    "verificationStatus": {
+                      "type": "string",
+                      "enum": [
+                        "unverified",
+                        "partial",
+                        "verified",
+                        "unreachable",
+                        "conflict"
+                      ]
+                    },
+                    "isPrimary": {
+                      "type": "boolean"
+                    },
+                    "checksum": {
+                      "type": "string",
+                      "enum": [
+                        "valid",
+                        "invalid"
+                      ],
+                      "description": "USCC 校验位结果（可选；校验通过不等于已核验）"
+                    },
+                    "validFrom": {
+                      "type": "string"
+                    },
+                    "validTo": {
                       "type": "string"
                     }
                   }
@@ -3575,11 +3757,34 @@
                       "type": "object",
                       "additionalProperties": true,
                       "properties": {
+                        "entityId": {
+                          "type": "string",
+                          "description": "稳定内部主体 ID；7+N 联接键，优先于旧 subjectId"
+                        },
+                        "subjectId": {
+                          "type": "string",
+                          "description": "遗留联接键；新数据用 entityId"
+                        },
                         "name": {
                           "type": "string"
                         },
                         "fullName": {
                           "type": "string"
+                        },
+                        "jurisdiction": {
+                          "type": "string"
+                        },
+                        "listingStatus": {
+                          "type": "string",
+                          "enum": [
+                            "unknown",
+                            "unlisted",
+                            "ipo_applied",
+                            "listed",
+                            "suspended",
+                            "delisted",
+                            "not_applicable"
+                          ]
                         },
                         "path": {
                           "type": "string"
@@ -13256,11 +13461,55 @@
                     }
                   }
                 }
+              },
+              "availability": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "found",
+                      "not_disclosed_after_search",
+                      "lower_bound",
+                      "pending_dd",
+                      "conflict",
+                      "not_applicable",
+                      "not_reviewed",
+                      "estimated"
+                    ],
+                    "description": "六态结论；not_disclosed_after_search 是合法终态"
+                  },
+                  "checkedSources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": "实际检索过的独立来源；非公众主体至少 2 个"
+                    }
+                  },
+                  "note": {
+                    "type": "string",
+                    "description": "检索范围与结论说明；status=not_disclosed_after_search 时必填"
+                  },
+                  "checkedAt": {
+                    "type": "string"
+                  },
+                  "databases": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "queries": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
               }
-            },
-            "required": [
-              "fiscalYear"
-            ]
+            }
           }
         },
         "$defs": {
@@ -24914,10 +25163,48 @@
                 "additionalProperties": true,
                 "properties": {
                   "blocking": {
-                    "type": "number"
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    ]
                   },
                   "warnings": {
-                    "type": "number"
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    ]
                   },
                   "passed": {
                     "type": "boolean"

@@ -8,7 +8,11 @@ import { createProject } from '../../src/kernel/project.js'
 
 export const repoRoot = resolve(fileURLToPath(import.meta.url), '..', '..', '..')
 export const fixturesDir = join(repoRoot, 'tests', 'fixtures')
-export const testHome = join(repoRoot, 'tests', '.tmp', 'home')
+// `node --test` runs test FILES in separate processes and they share one
+// process-level DSH_HOME. A single shared projects.json index makes concurrent
+// createProject calls lose entries (kernel review P1-11). Isolate the index per
+// test process so the suite is deterministic without touching production code.
+export const testHome = join(repoRoot, 'tests', '.tmp', `home-${process.pid}`)
 
 export function setTestHome() {
   process.env.DSH_HOME = testHome

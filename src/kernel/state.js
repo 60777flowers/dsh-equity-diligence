@@ -1,4 +1,4 @@
-import { listArtifacts, artifactCounts } from './artifacts.js'
+import { listArtifacts, artifactCounts, listVerifiedArtifacts, artifactVersionKey } from './artifacts.js'
 import { listIssues } from './issues.js'
 import { listRuns, loadRun } from './runner.js'
 import { compilePlaybook } from './playbook.js'
@@ -11,6 +11,8 @@ function planFromRun(run) {
 /** Assemble the read model used by the full-page workbench. */
 export async function projectState({ root, library, project, playbook }) {
   const artifacts = await listArtifacts(root)
+  const verifiedArtifacts = await listVerifiedArtifacts(root)
+  const verifiedKeys = new Set(verifiedArtifacts.map((artifact) => artifactVersionKey(artifact)))
   const runs = await listRuns(root)
   const issues = await listIssues(root)
   const latestRun = runs[0] ?? null
@@ -39,8 +41,14 @@ export async function projectState({ root, library, project, playbook }) {
   const redflags = artifacts.find((artifact) => artifact.type === 'risk.redflags')
   const coverage = artifacts.filter((artifact) => artifact.type === 'source.coverage')
   const deliverable = artifacts.find((artifact) => artifact.type === 'report.deliverable')
+  const deliverableVerified = Boolean(deliverable && verifiedKeys.has(artifactVersionKey(deliverable)))
   const issuesOpen = issues.filter((issue) => issue.status === 'open' || issue.status === 'deferred')
-  const blockingIssues = issuesOpen.filter((issue) => ['gate_failed', 'blocked', 'schema_invalid', 'delivery_qa_failed'].includes(issue.type))
+  // Any open issue except a pure review proposal blocks delivery. The previous
+  // whitelist missed runner failure codes such as unit_failed/timeout.
+  const blockingIssues = issuesOpen.filter((issue) => issue.type !== 'review_proposal')
+  const qaBlocking = deliverable?.data?.qa?.blocking
+  const qaBlockingCount = Array.isArray(qaBlocking) ? qaBlocking.length : typeof qaBlocking === 'number' ? qaBlocking : 0
+  const signedAt = deliverable?.data?.signoff?.signedAt ?? null
   const nextActions = []
   if (!latestRun) nextActions.push({ action: 'compile', label: '编译方案' })
   if (compiled.ok && (!latestRun || latestRun.status === 'failed')) nextActions.push({ action: 'run', label: '开始运行' })
@@ -48,7 +56,12 @@ export async function projectState({ root, library, project, playbook }) {
   if (issuesOpen.length > 0) nextActions.push({ action: 'issues', label: `处理 ${issuesOpen.length} 个议题` })
   if (!deliverable) nextActions.push({ action: 'build', label: '构建交付包' })
   if (deliverable && deliverable.status !== 'verified') nextActions.push({ action: 'verify', label: '完成交付体检' })
-  if (deliverable?.status === 'verified' && deliverable.data?.qa?.passed) nextActions.push({ action: 'present', label: '交付并签发' })
+  if (deliverableVerified && deliverable.data?.qa?.passed === true && !signedAt) {
+    nextActions.push({ action: 'verify', label: '复核并签发（用户）' })
+  }
+  if (deliverableVerified && deliverable.data?.qa?.passed === true && signedAt && blockingIssues.length === 0) {
+    nextActions.push({ action: 'present', label: '交付并签发' })
+  }
 
   return {
     project: {
@@ -152,12 +165,15 @@ export async function projectState({ root, library, project, playbook }) {
           artifactId: deliverable.id,
           status: deliverable.status,
           revision: deliverable.revision,
+          verified: deliverableVerified,
           data: deliverable.data,
         }
       : null,
     nextActions,
     readiness: {
-      artifactVerified: artifacts.length > 0 && artifacts.every((artifact) => ['verified', 'stale', 'rejected'].includes(artifact.status)),
+      // "verified" here means the CURRENT revision has a matching verified
+      // pointer; stale/rejected/draft never count as verified.
+      artifactVerified: artifacts.length > 0 && artifacts.every((artifact) => verifiedKeys.has(artifactVersionKey(artifact))),
       investigationComplete: (() => {
         const targetCount = Math.max(1, project.targets?.length ?? 1)
         const expectedUnits = plan
@@ -169,7 +185,14 @@ export async function projectState({ root, library, project, playbook }) {
         )
         return Boolean(latestRun && latestRun.status === 'completed' && expectedUnits > 0 && acceptedUnits >= expectedUnits && stale.length === 0 && hasBusinessArtifact)
       })(),
-      deliveryReady: Boolean(deliverable && deliverable.status === 'verified' && deliverable.data?.qa?.passed && blockingIssues.length === 0),
+      deliveryReady: Boolean(
+        deliverableVerified &&
+        deliverable?.data?.qa?.passed === true &&
+        qaBlockingCount === 0 &&
+        blockingIssues.length === 0 &&
+        signedAt &&
+        stale.length === 0,
+      ),
     },
   }
 }

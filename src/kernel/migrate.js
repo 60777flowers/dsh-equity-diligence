@@ -7,6 +7,7 @@ import { projectIdFor, slugify, subjectIdFor } from '../util/ids.js'
 import { recordArtifact, recordSystemArtifact } from './artifacts.js'
 import { playbookToText, loadPreset, projectsIndexPath } from './registry.js'
 import { upsertProjectIndex } from './project.js'
+import { normalizeTarget, subjectIdForTarget } from './subjects.js'
 
 function parseMarkdownTables(text) {
   const lines = String(text ?? '').split('\n')
@@ -89,7 +90,7 @@ async function importRoster({ root, library, project }) {
     root,
     library,
     type: 'investment.map',
-    subjectId: project.targets?.[0] ? subjectIdFor('co', project.targets[0].name) : 'project',
+    subjectId: project.targets?.[0] ? subjectIdForTarget(project.targets[0], project) : 'project',
     partitionKey: '_summary',
     output: summary,
     producedBy: { moduleId: 'migration/legacy', moduleVersion: '1.0.0', actor: 'import' },
@@ -195,7 +196,13 @@ export async function migrateLegacyProject({ root, library, targetName = undefin
   }
   const name = targetName ?? root.split(/[\\/]/).filter(Boolean).pop() ?? 'legacy-project'
   const projectId = `${projectIdFor(name)}_${semanticHash(root).slice(-6)}`
-  const targets = [{ name, type: 'corporate', jurisdiction: 'CN', status: 'target' }]
+  // Migrated projects stay schemaVersion 1: their imported artifacts already
+  // use legacy `co_<slug>` subject keys, so we must not re-key anything. The
+  // target still gets `entityId`/`identifiers`/`listingStatus` where the
+  // entityId is exactly the legacy key.
+  const legacyKey = subjectIdFor('co', name)
+  const normalizedTarget = normalizeTarget({ name, type: 'corporate', jurisdiction: 'CN', listingStatus: 'unknown' })
+  const targets = [{ ...normalizedTarget, entityId: legacyKey }]
   const engagement = {
     client: 'example',
     clientName: '委托方',

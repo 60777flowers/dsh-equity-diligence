@@ -410,10 +410,72 @@
             "additionalProperties": true,
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "用户输入的名称（检索用，不得被解析结果覆盖）"
+              },
+              "inputName": {
+                "type": "string",
+                "description": "原始输入名快照，用于对照解析后的法定名称"
+              },
+              "legalName": {
+                "type": "string",
+                "description": "经核验的法定名称；仅由 entity-writeback 在 verified 且有 >=2 证据（或人工确认）时写入"
+              },
+              "entityId": {
+                "type": "string",
+                "description": "稳定内部主体 ID；v2 项目用作 subjectId，v1 项目等于旧 co_<slug>"
+              },
+              "identifiers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "scheme": {
+                      "type": "string",
+                      "description": "CN_USCC / CN_LEGACY_REG_NO / SECURITY_TICKER / HK_CR_NO / LEI / AMAC_FUND_NO ..."
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "issuer": {
+                      "type": "string"
+                    },
+                    "jurisdiction": {
+                      "type": "string"
+                    },
+                    "verificationStatus": {
+                      "type": "string",
+                      "enum": [
+                        "unverified",
+                        "partial",
+                        "verified",
+                        "unreachable",
+                        "conflict"
+                      ]
+                    },
+                    "isPrimary": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              },
+              "listingStatus": {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "unlisted",
+                  "ipo_applied",
+                  "listed",
+                  "suspended",
+                  "delisted",
+                  "not_applicable"
+                ],
+                "description": "独立字段，默认 unknown；不得由 code/identifiers 推断"
               },
               "code": {
-                "type": "string"
+                "type": "string",
+                "description": "遗留只读镜像（证券代码或信用代码），不参与上市状态推断"
               },
               "market": {
                 "type": "string"
@@ -445,6 +507,28 @@
               "legalName": {
                 "type": "string"
               },
+              "entityId": {
+                "type": "string"
+              },
+              "identifiers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "listingStatus": {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "unlisted",
+                  "ipo_applied",
+                  "listed",
+                  "suspended",
+                  "delisted",
+                  "not_applicable"
+                ]
+              },
               "code": {
                 "type": "string"
               },
@@ -456,6 +540,34 @@
                   "low"
                 ]
               },
+              "verificationStatus": {
+                "type": "string",
+                "enum": [
+                  "unverified",
+                  "partial",
+                  "verified",
+                  "unreachable",
+                  "conflict"
+                ]
+              },
+              "evidenceCount": {
+                "type": "number"
+              },
+              "contentHash": {
+                "type": "string"
+              },
+              "applied": {
+                "type": "boolean"
+              },
+              "appliedFields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "note": {
+                "type": "string"
+              },
               "candidates": {
                 "type": "array",
                 "items": {
@@ -465,6 +577,10 @@
               }
             }
           }
+        },
+        "contentHash": {
+          "type": "string",
+          "description": "_resolution 分区的幂等键"
         },
         "targetCount": {
           "type": "number"

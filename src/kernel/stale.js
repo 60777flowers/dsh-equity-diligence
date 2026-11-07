@@ -1,10 +1,23 @@
 import { daysBetween, today } from '../util/time.js'
+import { codeVersionOf } from './artifacts.js'
 
-function stepForRecord(record, plan) {
+/**
+ * Find the plan step that produced a record.
+ * `instanceId` is authoritative (the runner stores it); a `moduleId` fallback
+ * is only allowed when it is unique, otherwise we would compare against an
+ * arbitrary instance of the same module.
+ */
+export function stepForRecord(record, plan) {
   if (!plan?.steps) return null
-  const byUnit = plan.steps.find((step) => step.instanceId === record.producedBy?.unitId)
-  if (byUnit) return byUnit
-  return plan.steps.find((step) => step.moduleId === record.producedBy?.moduleId) ?? null
+  const instanceId = record?.producedBy?.instanceId
+  if (instanceId) {
+    const byInstance = plan.steps.find((step) => step.instanceId === instanceId)
+    if (byInstance) return byInstance
+  }
+  const moduleId = record?.producedBy?.moduleId
+  if (!moduleId) return null
+  const byModule = plan.steps.filter((step) => step.moduleId === moduleId)
+  return byModule.length === 1 ? byModule[0] : null
 }
 
 /**
@@ -41,13 +54,34 @@ export function computeStale(record, { plan, library, project, artifacts, refere
 
   const step = stepForRecord(record, plan)
   if (step) {
-    if (record.producedBy?.moduleVersion && record.producedBy.moduleVersion !== step.moduleVersion) {
-      reasons.push({ code: 'code_changed', field: 'moduleVersion', expected: step.moduleVersion, actual: record.producedBy.moduleVersion })
+    const expectedCodeVersion = codeVersionOf({
+      moduleId: step.moduleId,
+      moduleVersion: step.moduleVersion,
+      templateSha: step.templateSha,
+    })
+    if (record.codeVersion) {
+      if (record.codeVersion !== expectedCodeVersion) {
+        reasons.push({
+          code: 'code_changed',
+          field: 'codeVersion',
+          expected: expectedCodeVersion,
+          actual: record.codeVersion,
+        })
+      }
+    } else {
+      // Legacy records predate `codeVersion`; fall back to the individual fields.
+      if (record.producedBy?.moduleVersion && record.producedBy.moduleVersion !== step.moduleVersion) {
+        reasons.push({ code: 'code_changed', field: 'moduleVersion', expected: step.moduleVersion, actual: record.producedBy.moduleVersion })
+      }
+      if (record.producedBy?.templateSha && step.templateSha && record.producedBy.templateSha !== step.templateSha) {
+        reasons.push({ code: 'code_changed', field: 'templateSha' })
+      }
     }
-    if (record.producedBy?.templateSha && step.templateSha && record.producedBy.templateSha !== step.templateSha) {
-      reasons.push({ code: 'code_changed', field: 'templateSha' })
-    }
-    const expectedTypes = new Set((step.inputs ?? []).map((input) => input.type))
+    const expectedTypes = new Set(
+      (step.inputs ?? [])
+        .filter((input) => !['degrade', 'optional', 'skip'].includes(input.onMissing))
+        .map((input) => input.type),
+    )
     const actualTypes = new Set((record.derivedFrom ?? []).filter((edge) => edge.kind === 'input').map((edge) => edge.type))
     const missing = [...expectedTypes].filter((type) => !actualTypes.has(type))
     if (missing.length > 0) {

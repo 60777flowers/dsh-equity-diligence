@@ -1,6 +1,6 @@
 {
   "name": "dsh-equity-diligence",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "一级市场尽调前的公开信息调查平台：类型化底稿、证据账本、方案编排、可追溯交付与 Web 工作台。",
   "type": "module",

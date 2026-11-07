@@ -32,8 +32,32 @@ export function defaultUserModulesDir() {
   return join(dshHome(), 'equity', 'modules')
 }
 
+/** DSH-managed equity home (`~/.dsh/equity` unless DSH_HOME is set). */
+export function equityHomeDir() {
+  return join(dshHome(), 'equity')
+}
+
 export function projectsIndexPath() {
   return join(dshHome(), 'equity', 'projects.json')
+}
+
+/**
+ * The only preset names the process accepts, mapped to files under
+ * assets/playbooks. Never build a path from caller input: `loadPreset` is
+ * reachable from HTTP and a free-form name is a path traversal (CWE-22).
+ */
+export const PRESET_FILES = Object.freeze({
+  'skill-only': 'skill-only.yaml',
+  quick: 'quick.yaml',
+  standard: 'standard.yaml',
+  deep: 'deep.yaml',
+  generic: 'generic.yaml',
+})
+
+export const PRESET_NAMES = Object.freeze(Object.keys(PRESET_FILES))
+
+export function isPresetName(name) {
+  return typeof name === 'string' && Object.hasOwn(PRESET_FILES, name)
 }
 
 /** Semver parse with a stable error. */
@@ -412,27 +436,26 @@ export function moduleSummary(module) {
   }
 }
 
-/** Load a preset playbook by name. */
+/** Load a preset playbook by name. Only the fixed preset names are accepted. */
 export async function loadPreset(name) {
-  const map = {
-    'skill-only': 'skill-only.yaml',
-    quick: 'quick.yaml',
-    standard: 'standard.yaml',
-    deep: 'deep.yaml',
-    generic: 'generic.yaml',
+  if (!isPresetName(name)) {
+    throw new EquityError('preset_missing', `预设不存在：${name ?? '（未指定）'}`, {
+      name,
+      presets: [...PRESET_NAMES],
+    })
   }
-  const file = map[name] ?? (name.endsWith('.yaml') ? name : `${name}.yaml`)
-  const path = join(ASSETS_DIR, 'playbooks', file)
+  // The file name comes from the constant map, never from caller input; the
+  // resolveInside call is defence in depth if the map is ever edited.
+  const path = resolveInside(join(ASSETS_DIR, 'playbooks'), PRESET_FILES[name])
   const text = await readText(path, null)
-  if (text === null) throw new EquityError('preset_missing', `预设不存在：${name}`, { name })
+  if (text === null) throw new EquityError('preset_missing', `预设文件缺失：${name}`, { name })
   return parsePlaybook(text, path)
 }
 
 /** List presets with counts. */
 export async function listPresets() {
-  const names = ['skill-only', 'quick', 'standard', 'deep', 'generic']
   const out = []
-  for (const name of names) {
+  for (const name of PRESET_NAMES) {
     try {
       const playbook = await loadPreset(name)
       out.push({

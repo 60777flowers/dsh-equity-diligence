@@ -2,24 +2,30 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join } from 'node:path'
 
-import { EquityError, canonicalJson, isPlainObject, semanticHash, sha256 } from '../util/json.js'
+import { EquityError, canonicalJson, isPlainObject, sha256 } from '../util/json.js'
 import {
   atomicWriteJson,
   atomicWriteText,
-  copyFileInto,
   ensureDir,
   hashFile,
   listFiles,
-  portableJoin,
   portableRelative,
   readJson,
-  readText,
+  removeDir,
   statOrNull,
 } from '../util/fs.js'
 import { nowIso, today } from '../util/time.js'
 import { PACKAGE_ROOT } from '../kernel/registry.js'
-import { listArtifacts, listClaims, listEvidence, readEvidenceBlob } from '../kernel/artifacts.js'
+import {
+  artifactVersionKey,
+  listArtifacts,
+  listClaims,
+  listEvidence,
+  listVerifiedArtifacts,
+  readEvidenceBlob,
+} from '../kernel/artifacts.js'
 import { BUILDER_VERSION } from '../kernel/snapshot.js'
+import { NON_BUSINESS_ARTIFACT_TYPES, SIX_STATES, workpaperRelativePath } from './delivery-common.js'
 import { validateDelivery } from './check.js'
 
 const execFileAsync = promisify(execFile)
@@ -55,10 +61,99 @@ function valueText(value) {
   return String(value)
 }
 
-function sixState(value, fallback = 'not_reviewed') {
-  if (isPlainObject(value) && value.status) return value
-  if (value === null || value === undefined || value === '') return { status: fallback, value: '未提供', note: '' }
-  return { status: 'found', value, note: '' }
+/** A value is empty when it carries no fact: null/blank/empty array/empty object. */
+function isEmptyValue(value) {
+  if (value === null || value === undefined) return true
+  if (typeof value === 'string') {
+    const text = value.trim()
+    return text === '' || text === '未提供' || text === '未提供/not_reviewed'
+  }
+  if (Array.isArray(value)) return value.length === 0
+  if (isPlainObject(value)) return Object.keys(value).length === 0
+  return false
+}
+
+/** Join a non-empty array; return null (not an empty string) when there is no fact. */
+function joinText(list, mapper = valueText, separator = '、') {
+  if (!Array.isArray(list) || list.length === 0) return null
+  const parts = list.map((item) => valueText(mapper(item)).trim()).filter(Boolean)
+  return parts.length > 0 ? parts.join(separator) : null
+}
+
+/** Count only when the array carries data; empty arrays mean "not reviewed", not 0. */
+function arrayCount(value) {
+  return Array.isArray(value) && value.length > 0 ? value.length : null
+}
+
+/**
+ * Normalize a value into a six-state object. Status objects are preserved; a
+ * non-empty value is never reported as `found` without the caller supplying
+ * evidence through the row builder.
+ */
+function sixState(value, { fallback = 'not_reviewed', note = '' } = {}) {
+  if (isPlainObject(value) && typeof value.status === 'string') {
+    const status = SIX_STATES.has(value.status) ? value.status : 'not_reviewed'
+    const inner = value.value
+    if (isEmptyValue(inner)) {
+      return {
+        status: status === 'found' ? fallback : status,
+        value: '',
+        note: value.note ?? note,
+      }
+    }
+    return { status, value: inner, note: value.note ?? note }
+  }
+  if (isEmptyValue(value)) return { status: fallback, value: '', note }
+  return { status: 'found', value, note }
+}
+
+function subjectClaims(claims, artifact) {
+  if (!artifact) return []
+  const ids = new Set(artifact.claimIds ?? [])
+  return claims.filter((claim) => ids.has(claim.claimId))
+}
+
+function claimFor(claims, artifact, predicates) {
+  if (predicates.length === 0) return null
+  const scoped = subjectClaims(claims, artifact)
+  return scoped.find((claim) => predicates.includes(claim.predicate)) ?? null
+}
+
+/**
+ * Build one 02–05 row: status is derived from the data, never defaulted to
+ * `found`; `found` requires a non-empty value AND a claim/evidence reference.
+ */
+function fieldRow(claims, {
+  label,
+  value,
+  artifact = null,
+  predicates = [],
+  status = null,
+  missing = 'not_reviewed',
+  evidenceIds = [],
+}) {
+  const claim = claimFor(claims, artifact, predicates)
+  const refs = []
+  if (claim?.claimId) refs.push(claim.claimId)
+  for (const link of claim?.evidenceLinks ?? []) {
+    if (link?.evidenceId && !refs.includes(link.evidenceId)) refs.push(link.evidenceId)
+  }
+  for (const id of evidenceIds) {
+    if (id && !refs.includes(id)) refs.push(id)
+  }
+  if (!claim && refs.length === 0) {
+    for (const id of artifact?.evidenceIds ?? []) {
+      if (id && !refs.includes(id)) refs.push(id)
+    }
+  }
+  let resolved = status && SIX_STATES.has(status) ? status : null
+  if (!resolved) {
+    if (isEmptyValue(value)) resolved = missing
+    else if (claim) resolved = SIX_STATES.has(claim.status) ? claim.status : 'found'
+    else resolved = refs.length > 0 ? 'found' : 'not_reviewed'
+  }
+  if (resolved === 'found' && (isEmptyValue(value) || refs.length === 0)) resolved = 'not_reviewed'
+  return [label, valueText(value), resolved, refs.join(', ')]
 }
 
 function topClaims(artifacts, claims) {
@@ -193,31 +288,79 @@ function findArtifact(artifacts, type, subjectId) {
   return list.find((artifact) => artifact.partitionKey === '_summary') ?? list.find((artifact) => artifact.partitionKey === '_default') ?? list[0] ?? null
 }
 
+/**
+ * Resolve the join key for one investment.map entity.
+ * The artifact key is the internal entity id (entityId) or the legacy subjectId.
+ * A display name is only a deterministic fallback and is never treated as an
+ * artifact subject.
+ */
+function entityJoin(entity) {
+  const entityId = typeof entity?.entityId === 'string' ? entity.entityId.trim() : ''
+  if (entityId) return { key: entityId, kind: 'entityId', artifactSubjectId: entityId }
+  const subjectId = typeof entity?.subjectId === 'string' ? entity.subjectId.trim() : ''
+  if (subjectId) return { key: subjectId, kind: 'subjectId', artifactSubjectId: subjectId }
+  const name = typeof entity?.fullName === 'string' && entity.fullName.trim()
+    ? entity.fullName.trim()
+    : String(entity?.name ?? '').trim()
+  return {
+    key: name ? `name:${name}` : null,
+    kind: 'name',
+    artifactSubjectId: null,
+  }
+}
+
+/** Founder-control answer from actual control data; no data never becomes "否". */
+function founderControlField(ownership) {
+  const control = Array.isArray(ownership?.data?.control) ? ownership.data.control : []
+  const explicit = ownership?.data?.founderControl
+  if (explicit !== undefined && explicit !== null) {
+    return sixState(explicit, { fallback: 'not_reviewed', note: '底稿 founderControl 字段' })
+  }
+  if (!ownership || control.length === 0) {
+    return { status: 'not_reviewed', value: '', note: '未取得控制权/创始团队控制关系数据' }
+  }
+  const founder = control.some((item) =>
+    /创始|创始人|创始团队/.test(`${item?.role ?? ''} ${item?.basis ?? ''} ${item?.name ?? ''}`),
+  )
+  if (founder) {
+    return {
+      status: 'found',
+      value: '是',
+      note: control.map((item) => [item?.name, item?.role].filter(Boolean).join('：')).filter(Boolean).join('；'),
+    }
+  }
+  return {
+    status: 'not_reviewed',
+    value: '',
+    note: `控制关系已披露（${control.map((item) => item?.name).filter(Boolean).join('、') || '未列名'}），未取得创始团队控制结论`,
+  }
+}
+
 function entityFields({ artifacts, entity }) {
-  const subjectId = entity.subjectId ?? entity.entityId
-  const ownership = findArtifact(artifacts, 'ownership.chain', subjectId)
-  const business = findArtifact(artifacts, 'business.segment', subjectId)
-  const financials = latestFinancials(artifacts, subjectId)
-  const financing = findArtifact(artifacts, 'financing.history', subjectId)
-  const fit = findArtifact(artifacts, 'assessment.fit', subjectId)
-  const market = findArtifact(artifacts, 'market.landscape', subjectId)
-  const people = findArtifact(artifacts, 'org.people', subjectId)
-  const capTable = ownership?.data?.capTable ?? []
+  const join = entityJoin(entity)
+  const subjectId = join.artifactSubjectId
+  const ownership = subjectId ? findArtifact(artifacts, 'ownership.chain', subjectId) : null
+  const business = subjectId ? findArtifact(artifacts, 'business.segment', subjectId) : null
+  const financials = subjectId ? latestFinancials(artifacts, subjectId) : null
+  const financing = subjectId ? findArtifact(artifacts, 'financing.history', subjectId) : null
+  const fit = subjectId ? findArtifact(artifacts, 'assessment.fit', subjectId) : null
+  const market = subjectId ? findArtifact(artifacts, 'market.landscape', subjectId) : null
+  const people = subjectId ? findArtifact(artifacts, 'org.people', subjectId) : null
+  const capTable = Array.isArray(ownership?.data?.capTable) ? ownership.data.capTable : []
   const top5 = capTable
     .map((row) => Number(row.totalPct ?? row.directPct ?? 0))
     .filter((value) => Number.isFinite(value))
     .sort((a, b) => b - a)
     .slice(0, 5)
-  const rounds = financing?.data?.rounds ?? []
+  const rounds = Array.isArray(financing?.data?.rounds) ? financing.data.rounds : []
   const lastRound = rounds.at(-1)
   const totalFunding = rounds.reduce((sum, round) => sum + (Number(round.amount?.amount) || 0), 0)
-  const founderControl = (ownership?.data?.control ?? []).some((item) => /创始|实控|控股|董事长/.test(`${item.role ?? ''} ${item.basis ?? ''}`))
   return {
     latestFunding: sixState(lastRound ? `${lastRound.round ?? ''} ${lastRound.date ?? ''} ${valueText(lastRound.amount)}`.trim() : null),
     largestShareholderPct: sixState(capTable[0]?.totalPct ?? capTable[0]?.directPct ?? null),
     top5Pct: sixState(top5.length ? top5.reduce((sum, value) => sum + value, 0) : null),
-    shareholderCount: sixState(capTable.length || null),
-    founderControl: sixState(founderControl ? '是' : '否'),
+    shareholderCount: sixState(capTable.length > 0 ? capTable.length : null),
+    founderControl: founderControlField(ownership),
     founderBackground: sixState(people?.data?.keyPeople?.[0]?.name ?? null),
     industryChain: sixState(business?.data?.products?.[0]?.category ?? null),
     expansionCycle: sixState(business?.data?.techRoute?.[0]?.route ?? null),
@@ -225,13 +368,14 @@ function entityFields({ artifacts, entity }) {
     grossMargin: sixState(financials?.data?.grossMargin ?? null),
     ranking: sixState(market?.data?.competition?.[0]?.positioning ?? null),
     techRelevance: sixState(fit?.data?.technologyFit?.value ?? fit?.data?.technologyFit ?? null),
-    totalFunding: sixState(totalFunding || null),
+    totalFunding: sixState(totalFunding > 0 ? totalFunding : null),
     assessment: sixState(fit?.data?.conclusion?.technologyCommercial ?? fit?.data?.equityView?.value ?? null),
   }
 }
 
-function claimRefFor(claims, predicate) {
-  return claims.find((claim) => claim.predicate === predicate)?.claimId ?? null
+function claimRefFor(claims, predicate, subjectId) {
+  if (!subjectId) return null
+  return claims.find((claim) => claim.predicate === predicate && claim.subjectId === subjectId)?.claimId ?? null
 }
 
 function buildSevenN({ artifacts, claims }) {
@@ -242,18 +386,29 @@ function buildSevenN({ artifacts, claims }) {
     const sheet = categorySheet(platform.data, familySheets)
     if (sheet === '说明') continue
     for (const entity of platform.data.entities ?? []) {
-      const subjectId = entity.subjectId ?? null
-      const fields = entityFields({ artifacts, entity: { ...entity, subjectId } })
+      const join = entityJoin(entity)
+      const fields = entityFields({ artifacts, entity })
       rows.push({
         sheet,
         platform: {
+          platformId: platform.data.platformId ?? platform.partitionKey ?? '',
           name: platform.data.name ?? platform.data.platformId,
           role: platform.data.role ?? '',
-          structure: valueText(platform.data.vehicles?.map((vehicle) => `${vehicle.name ?? ''} ${vehicle.role ?? ''}`).join('；')),
+          structure: joinText(
+            platform.data.vehicles,
+            (vehicle) => [vehicle?.name, vehicle?.role].filter(Boolean).join(' '),
+            '；',
+          ) ?? '',
           positioning: platform.data.evidenceSummary ?? '',
-          note: platform.data.platformId ?? '',
+          time: platform.data.time ?? platform.data.date ?? '',
+          note: platform.data.note ?? '',
         },
         entity: {
+          entityId: join.kind === 'entityId' ? join.key : null,
+          entityKey: join.key,
+          joinKind: join.kind,
+          artifactSubjectId: join.artifactSubjectId,
+          subjectId: typeof entity.subjectId === 'string' ? entity.subjectId : null,
           name: entity.fullName ?? entity.name,
           latestFunding: valueText(fields.latestFunding.value),
           largestShareholderPct: fields.largestShareholderPct.value,
@@ -270,11 +425,12 @@ function buildSevenN({ artifacts, claims }) {
           totalFunding: fields.totalFunding.value,
           assessment: fields.assessment.value,
           dataQuality: `${fields.largestShareholderPct.status}/${fields.grossMargin.status}`,
+          fields,
         },
         claimRefs: {
-          largestShareholderPct: claimRefFor(claims, 'largest_shareholder_pct'),
-          grossMargin: claimRefFor(claims, 'gross_margin'),
-          assessment: claimRefFor(claims, 'investment_cooperation_assessment'),
+          largestShareholderPct: claimRefFor(claims, 'largest_shareholder_pct', join.artifactSubjectId),
+          grossMargin: claimRefFor(claims, 'gross_margin', join.artifactSubjectId),
+          assessment: claimRefFor(claims, 'investment_cooperation_assessment', join.artifactSubjectId),
         },
       })
     }
@@ -303,22 +459,39 @@ function buildComprehensive({ artifacts, claims }) {
   const legal = artifacts.find((artifact) => artifact.type === 'legal.risk')
   const regulatory = artifacts.find((artifact) => artifact.type === 'regulatory.compliance')
   const redflags = artifacts.find((artifact) => artifact.type === 'risk.redflags')
+  const techOrigin = artifacts.find((artifact) => artifact.type === 'tech.origin')
+  const qualifications = artifacts.find((artifact) => artifact.type === 'qualifications')
+  const debt = artifacts.find((artifact) => artifact.type === 'debt.guarantee')
+  const policy = artifacts.find((artifact) => artifact.type === 'policy.exposure')
 
-  const row = (label, value, status = 'found', evidenceIds = []) => [label, valueText(value), status, evidenceIds.join(', ')]
+  const row = (options) => fieldRow(claims, options)
   sheets.push({
     name: '02_主体与股权',
     title: '主体与股权',
     headers: ['字段', '值', '状态', '证据'],
     rows: [
-      row('法定名称', identity?.data?.legalName),
-      row('统一社会信用代码', identity?.data?.code),
-      row('注册地', identity?.data?.domicile),
-      row('成立日期', identity?.data?.incorporationDate),
-      row('主体状态', identity?.data?.status),
-      row('股权层级', ownership?.data?.layers?.length, ownership ? 'found' : 'not_reviewed'),
-      row('实控人线索', ownership?.data?.ubo?.map((item) => item.name).join('、')),
-      row('控制方式', ownership?.data?.control?.map((item) => `${item.name}${item.role ? `（${item.role}）` : ''}`).join('、')),
-      row('特殊权利', ownership?.data?.specialRights?.map((item) => item.type).join('、')),
+      row({ label: '法定名称', value: identity?.data?.legalName, artifact: identity, predicates: ['legal_name'] }),
+      row({ label: '统一社会信用代码', value: identity?.data?.code, artifact: identity, predicates: ['unified_social_credit_code'] }),
+      row({ label: '注册地', value: identity?.data?.domicile, artifact: identity, predicates: ['domicile', 'registered_address'] }),
+      row({ label: '成立日期', value: identity?.data?.incorporationDate, artifact: identity, predicates: ['incorporation_date', 'established_date'] }),
+      row({ label: '主体状态', value: identity?.data?.status, artifact: identity, predicates: ['company_status', 'legal_status'] }),
+      row({ label: '股权层级', value: arrayCount(ownership?.data?.layers), artifact: ownership, predicates: ['ownership_layer_count'] }),
+      row({
+        label: '实控人线索',
+        value: joinText(ownership?.data?.ubo, (item) => item?.name),
+        artifact: ownership,
+        predicates: ['ultimate_beneficial_owner', 'ubo'],
+      }),
+      row({
+        label: '控制方式',
+        value: joinText(ownership?.data?.control, (item) => `${item?.name ?? ''}${item?.role ? `（${item.role}）` : ''}`),
+        artifact: ownership,
+      }),
+      row({
+        label: '特殊权利',
+        value: joinText(ownership?.data?.specialRights, (item) => item?.type),
+        artifact: ownership,
+      }),
     ],
   })
   sheets.push({
@@ -326,13 +499,21 @@ function buildComprehensive({ artifacts, claims }) {
     title: '业务与技术',
     headers: ['字段', '值', '状态', '证据'],
     rows: [
-      row('产品线', business?.data?.products?.map((item) => item.name).join('、')),
-      row('收入构成', business?.data?.segments?.map((item) => `${item.name} ${item.revenuePct ?? ''}%`).join('；')),
-      row('专利数', ip?.data?.patents?.length),
-      row('商标数', ip?.data?.trademarks?.length),
-      row('软著数', ip?.data?.software?.length),
-      row('技术来源', artifacts.find((artifact) => artifact.type === 'tech.origin')?.data?.origins?.map((item) => item.technology).join('、')),
-      row('资质', artifacts.find((artifact) => artifact.type === 'qualifications')?.data?.items?.map((item) => item.name).join('、')),
+      row({ label: '产品线', value: joinText(business?.data?.products, (item) => item?.name), artifact: business, predicates: ['main_products', 'product_lines'] }),
+      row({
+        label: '收入构成',
+        value: joinText(
+          business?.data?.segments,
+          (item) => `${item?.name ?? ''}${item?.revenuePct === undefined || item?.revenuePct === null ? '' : ` ${item.revenuePct}%`}`,
+          '；',
+        ),
+        artifact: business,
+      }),
+      row({ label: '专利数', value: arrayCount(ip?.data?.patents), artifact: ip, predicates: ['patent_count'] }),
+      row({ label: '商标数', value: arrayCount(ip?.data?.trademarks), artifact: ip, predicates: ['trademark_count'] }),
+      row({ label: '软著数', value: arrayCount(ip?.data?.software), artifact: ip, predicates: ['software_copyright_count'] }),
+      row({ label: '技术来源', value: joinText(techOrigin?.data?.origins, (item) => item?.technology), artifact: techOrigin }),
+      row({ label: '资质', value: joinText(qualifications?.data?.items, (item) => item?.name), artifact: qualifications }),
     ],
   })
   sheets.push({
@@ -340,13 +521,18 @@ function buildComprehensive({ artifacts, claims }) {
     title: '财务',
     headers: ['字段', '值', '状态', '证据'],
     rows: [
-      row('财年', financials?.data?.fiscalYear),
-      row('营业收入', financials?.data?.revenue),
-      row('净利润', financials?.data?.netProfit),
-      row('毛利率', financials?.data?.grossMargin),
-      row('融资轮次', financing?.data?.rounds?.length),
-      row('最新估值', financing?.data?.valuationMarks?.at(-1)?.postMoney),
-      row('有息负债', artifacts.find((artifact) => artifact.type === 'debt.guarantee')?.data?.debt?.length),
+      row({ label: '财年', value: financials?.data?.fiscalYear, artifact: financials, predicates: ['fiscal_year'] }),
+      row({ label: '营业收入', value: financials?.data?.revenue, artifact: financials, predicates: ['revenue', 'operating_revenue'] }),
+      row({ label: '净利润', value: financials?.data?.netProfit, artifact: financials, predicates: ['net_profit'] }),
+      row({ label: '毛利率', value: financials?.data?.grossMargin, artifact: financials, predicates: ['gross_margin'] }),
+      row({ label: '融资轮次', value: arrayCount(financing?.data?.rounds), artifact: financing, predicates: ['financing_round_count'] }),
+      row({
+        label: '最新估值',
+        value: financing?.data?.valuationMarks?.at(-1)?.postMoney,
+        artifact: financing,
+        predicates: ['post_money_valuation'],
+      }),
+      row({ label: '有息负债', value: arrayCount(debt?.data?.debt), artifact: debt }),
     ],
   })
   sheets.push({
@@ -354,13 +540,13 @@ function buildComprehensive({ artifacts, claims }) {
     title: '风险',
     headers: ['字段', '值', '状态', '证据'],
     rows: [
-      row('诉讼', legal?.data?.litigation?.length),
-      row('被执行', legal?.data?.enforcement?.length),
-      row('失信', legal?.data?.dishonest?.length),
-      row('股权冻结', legal?.data?.frozen?.length),
-      row('行政处罚', regulatory?.data?.penalties?.length),
-      row('管制清单', artifacts.find((artifact) => artifact.type === 'policy.exposure')?.data?.listings?.length),
-      row('红旗', redflags?.data?.flags?.length),
+      row({ label: '诉讼', value: arrayCount(legal?.data?.litigation), artifact: legal, predicates: ['litigation_count'] }),
+      row({ label: '被执行', value: arrayCount(legal?.data?.enforcement), artifact: legal, predicates: ['enforcement_count'] }),
+      row({ label: '失信', value: arrayCount(legal?.data?.dishonest), artifact: legal, predicates: ['dishonest_count'] }),
+      row({ label: '股权冻结', value: arrayCount(legal?.data?.frozen), artifact: legal, predicates: ['equity_freeze_count'] }),
+      row({ label: '行政处罚', value: arrayCount(regulatory?.data?.penalties), artifact: regulatory, predicates: ['penalty_count'] }),
+      row({ label: '管制清单', value: arrayCount(policy?.data?.listings), artifact: policy }),
+      row({ label: '红旗', value: arrayCount(redflags?.data?.flags), artifact: redflags }),
     ],
   })
   sheets.push({
@@ -440,7 +626,10 @@ function workpaperMarkdown({ artifact, claims, evidence, module }) {
   const lines = []
   lines.push(`# 工作底稿：${artifact.type} / ${artifact.subjectId} / ${artifact.partitionKey}`)
   lines.push('')
-  lines.push(`> revision ${artifact.revision} ｜ status ${artifact.status} ｜ asOf ${artifact.asOf} ｜ hash ${artifact.contentHash}`)
+  lines.push(`> artifactId ${artifact.id} ｜ revision ${artifact.revision} ｜ status ${artifact.status} ｜ asOf ${artifact.asOf}`)
+  lines.push('>')
+  lines.push(`> contentHash ${artifact.contentHash}`)
+  lines.push(`> versionKey ${artifactVersionKey(artifact)}`)
   lines.push('')
   lines.push('## 1. 程序')
   lines.push('')
@@ -448,7 +637,8 @@ function workpaperMarkdown({ artifact, claims, evidence, module }) {
   lines.push('')
   lines.push(`- 模块：${artifact.producedBy?.moduleId ?? ''}@${artifact.producedBy?.moduleVersion ?? ''}`)
   lines.push(`- 输入：${(artifact.derivedFrom ?? []).map((edge) => `${edge.type} rev${edge.revision}`).join('；') || '无'}`)
-  lines.push(`- 检查：${(artifact.checks ?? []).map((check) => `${check.id}:${check.status}`).join('；')}`)
+  lines.push(`- 检查：${(artifact.checks ?? []).map((check) => `${check.id}:${check.status}`).join('；') || '无'}`)
+  lines.push(`- 证据：${(artifact.evidenceIds ?? []).join(', ') || '无'}`)
   lines.push('')
   lines.push('## 2. 发现')
   lines.push('')
@@ -463,12 +653,14 @@ function workpaperMarkdown({ artifact, claims, evidence, module }) {
   for (const claim of claims) {
     lines.push(`| ${claim.claimId} | ${claim.predicate} | ${escapeCell(valueText(claim.value))} | ${claim.status} | ${(claim.evidenceLinks ?? []).map((link) => link.evidenceId).join(', ')} |`)
   }
+  if (claims.length === 0) lines.push('| — | — | — | not_reviewed | 无 |')
   lines.push('')
   lines.push('| evidenceId | 来源 | 引文 | 定位 | 核验 |')
   lines.push('|---|---|---|---|---|')
   for (const item of evidence) {
     lines.push(`| ${item.evidenceId} | ${item.url ?? ''} | ${escapeCell(truncate(item.quote, 200))} | ${item.locator ?? ''} | ${item.verificationStatus ?? ''} |`)
   }
+  if (evidence.length === 0) lines.push('| — | — | — | — | 无 |')
   lines.push('')
   lines.push('## 4. 红旗、缺口与复核')
   lines.push('')
@@ -484,7 +676,8 @@ function workpaperMarkdown({ artifact, claims, evidence, module }) {
   lines.push('')
   lines.push('### 复核记录')
   lines.push('- 机器检查：见 `checks`。')
-  lines.push('- 人工复核：待填（reviewedBy / reviewedAt / 结论）。')
+  lines.push('- preparedBy：equity-diligence（系统构建）。')
+  lines.push('- reviewedBy / reviewedAt / 复核结论：待填。')
   return lines.join('\n')
 }
 
@@ -533,6 +726,67 @@ async function runPython(script, args, timeout = 180_000) {
 /**
  * Build the full delivery package.
  */
+/**
+ * Keep the delivery directory free of builder-internal artefacts and of the
+ * previous package's verdicts. A failed rebuild must not leave an old
+ * manifest/QA record that can be mistaken for the new package.
+ */
+async function cleanDeliveryResidue(outDir) {
+  const stale = [
+    'manifest.json',
+    'QA与签发记录.md',
+    'workbook_map.json',
+    '00_范围与口径.md',
+    '01_管理层摘要.md',
+    '02_综合尽调工作簿.xlsx',
+    '03_专项_投资版图_7+N.xlsx',
+    '04_工作底稿',
+    '05_证据快照',
+  ]
+  for (const name of stale) await removeDir(join(outDir, name))
+  const files = await listFiles(outDir)
+  for (const file of files) {
+    const relative = portableRelative(outDir, file)
+    if (relative === '.build-input.json' || relative.endsWith('/.build-input.json') || relative.endsWith('.inspect.json')) {
+      await removeDir(file)
+    }
+  }
+}
+
+function qaPayload(qa) {
+  return {
+    passed: qa.passed === true,
+    blocking: Array.isArray(qa.blocking) ? qa.blocking : [],
+    warnings: Array.isArray(qa.warnings) ? qa.warnings : [],
+  }
+}
+
+function workpaperIndexMarkdown({ artifacts, claims, evidence }) {
+  const lines = []
+  lines.push('# 工作底稿索引')
+  lines.push('')
+  lines.push(`> 共 ${artifacts.length} 份底稿 / ${artifacts.length} 份 workpaper；claim ${claims.length} 条；证据 ${evidence.length} 条。`)
+  lines.push('>')
+  lines.push('> 路径规则：`04_工作底稿/<type>/<subjectId>/<partitionKey>/workpaper.md`，一份底稿一个文件，不覆盖。')
+  lines.push('')
+  lines.push('| # | artifactId | 类型 | 主体 | 分区 | revision | status | 证据数 | claim 数 | workpaper |')
+  lines.push('|---|---|---|---|---|---|---|---|---|---|')
+  for (const [index, artifact] of artifacts.entries()) {
+    const artifactClaims = claims.filter((claim) => artifact.claimIds?.includes(claim.claimId))
+    const artifactEvidence = evidence.filter((item) => artifact.evidenceIds?.includes(item.evidenceId))
+    lines.push(`| ${index + 1} | ${artifact.id} | ${artifact.type} | ${artifact.subjectId} | ${artifact.partitionKey} | ${artifact.revision} | ${artifact.status} | ${artifactEvidence.length} | ${artifactClaims.length} | ${workpaperRelativePath(artifact)} |`)
+  }
+  lines.push('')
+  return lines.join('\n')
+}
+
+/**
+ * Build the full delivery package.
+ *
+ * QA is computed for real: a preliminary workbook is generated, `validateDelivery`
+ * runs against it, and the workbooks are rebuilt with that real QA so the
+ * `10_体检单` sheet, `manifest.qa` and `QA与签发记录.md` carry the same verdict.
+ */
 export async function buildDeliverable({
   root,
   library,
@@ -545,24 +799,49 @@ export async function buildDeliverable({
   partial = undefined,
 }) {
   const outDir = join(root, '05_交付')
+  const qaDir = join(root, '.equity', 'delivery')
   await ensureDir(outDir)
-  const artifacts = await listArtifacts(root)
-  const stale = artifacts.filter((artifact) => artifact.status === 'stale')
-  const rejected = artifacts.filter((artifact) => artifact.status === 'rejected')
+  await ensureDir(qaDir)
+  await cleanDeliveryResidue(outDir)
+
+  // Delivery reads only genuinely released revisions. Draft/stale/rejected
+  // artifacts stay in the project but never enter the package.
+  const allArtifacts = await listArtifacts(root)
+  const artifacts = (await listVerifiedArtifacts(root)).filter((artifact) => artifact.status === 'verified')
+  const businessArtifacts = artifacts.filter((artifact) => !NON_BUSINESS_ARTIFACT_TYPES.has(artifact.type))
+  const stale = allArtifacts.filter((artifact) => artifact.status === 'stale')
+  const rejected = allArtifacts.filter((artifact) => artifact.status === 'rejected')
+  const draft = allArtifacts.filter((artifact) => artifact.status === 'draft')
+
   const allClaims = []
-  for (const subjectId of new Set(artifacts.map((artifact) => artifact.subjectId))) {
-    const claims = await listClaims(root, subjectId)
+  const seenClaimIds = new Set()
+  for (const artifact of artifacts) {
+    const claims = await listClaims(root, artifact.subjectId)
     for (const claim of claims) {
-      const artifact = artifacts.find((candidate) => candidate.claimIds?.includes(claim.claimId))
+      if (!artifact.claimIds?.includes(claim.claimId)) continue
+      if (seenClaimIds.has(claim.claimId)) continue
+      seenClaimIds.add(claim.claimId)
       allClaims.push({
         ...claim,
-        artifactId: artifact?.id ?? null,
-        artifactRevision: artifact?.revision ?? null,
-        artifactContentHash: artifact?.contentHash ?? null,
+        artifactId: artifact.id,
+        artifactRevision: artifact.revision,
+        artifactContentHash: artifact.contentHash,
       })
     }
   }
-  const evidence = await listEvidence(root)
+
+  // Only evidence referenced by released artifacts/claims is deliverable.
+  const deliveredEvidenceIds = new Set()
+  for (const artifact of artifacts) {
+    for (const id of artifact.evidenceIds ?? []) deliveredEvidenceIds.add(id)
+  }
+  for (const claim of allClaims) {
+    for (const link of claim.evidenceLinks ?? []) {
+      if (link?.evidenceId) deliveredEvidenceIds.add(link.evidenceId)
+    }
+  }
+  const evidence = (await listEvidence(root)).filter((item) => deliveredEvidenceIds.has(item.evidenceId))
+
   const target = project.targets?.[0] ?? { name: project.name, code: '' }
   const meta = {
     projectId: project.projectId,
@@ -577,9 +856,15 @@ export async function buildDeliverable({
     accountingStandard: project.engagement?.accountingStandard ?? 'CAS',
     generatedAt: nowIso(),
     template,
-    partial: partial ?? (artifacts.some((artifact) => ['draft', 'stale', 'rejected'].includes(artifact.status)) || stale.length > 0 || rejected.length > 0),
+    partial: partial ?? (
+      allArtifacts.some((artifact) => ['draft', 'stale', 'rejected'].includes(artifact.status)) ||
+      businessArtifacts.length === 0
+    ),
     staleCount: stale.length,
     rejectedCount: rejected.length,
+    draftCount: draft.length,
+    verifiedCount: artifacts.length,
+    businessCount: businessArtifacts.length,
     banner: '本报告基于公开信息，不构成投资建议；不能替代现场尽调、法律、审计、税务或估值意见。',
     title: `${target.name} · 公开信息调查报告`,
     subtitle: `尽调前公开信息调查 / ${today()}`,
@@ -592,6 +877,7 @@ export async function buildDeliverable({
     '公开信息存在滞后、缺失与口径差异；未披露不等于不存在。',
     '未进行现场尽调、受益所有权核验、银行流水核对、访谈或函证。',
     '工商/媒体数据可能滞后于公告；关键结论应以原始公告/监管文件为准。',
+    ...(draft.length ? [`有 ${draft.length} 份底稿 draft，未进入本次交付。`] : []),
     ...(stale.length ? [`有 ${stale.length} 份底稿 stale，报告可能基于旧版本。`] : []),
     ...(rejected.length ? [`有 ${rejected.length} 份底稿 rejected，相关结论不得引用。`] : []),
   ]
@@ -610,17 +896,21 @@ export async function buildDeliverable({
   await atomicWriteText(summaryFile, summaryMarkdown({ project, meta, findings, redFlags, gaps, limitations, sources }))
   await atomicWriteText(join(outDir, '00_范围与口径.md'), rangeMarkdown({ project, meta }))
 
-  // Workpapers
-  const wpRoot = join(outDir, '04_工作底稿')
+  // Workpapers: one file per artifact, path carries type/subject/partition.
+  const workpapers = []
   for (const artifact of artifacts) {
     const module = library.modules.get(artifact.producedBy?.moduleId)
-    const slug = (artifact.producedBy?.moduleId ?? artifact.type).split('/').pop()
-    const dir = join(wpRoot, slug)
-    await ensureDir(dir)
+    const relative = workpaperRelativePath(artifact)
+    const file = join(outDir, relative)
     const claims = allClaims.filter((claim) => artifact.claimIds?.includes(claim.claimId))
     const ev = evidence.filter((item) => artifact.evidenceIds?.includes(item.evidenceId))
-    await atomicWriteText(join(dir, 'workpaper.md'), workpaperMarkdown({ artifact, claims, evidence: ev, module }))
+    await atomicWriteText(file, workpaperMarkdown({ artifact, claims, evidence: ev, module }))
+    workpapers.push({ artifactId: artifact.id, path: relative })
   }
+  await atomicWriteText(
+    join(outDir, '04_工作底稿', '00_索引.md'),
+    workpaperIndexMarkdown({ artifacts, claims: allClaims, evidence }),
+  )
 
   // Evidence snapshots (immutable copies)
   const snapshotDir = join(outDir, '05_证据快照')
@@ -642,7 +932,8 @@ export async function buildDeliverable({
   }
   await atomicWriteJson(join(snapshotDir, 'evidence-index.json'), snapshotIndex)
 
-  // Input for the Python workbook builder
+  // Input for the Python workbook builder. No QA verdict is assumed here: the
+  // first build is explicitly provisional, then rebuilt with the real QA.
   const buildInput = {
     meta,
     summary: { title: meta.title, subtitle: meta.subtitle, findings, redFlags, gaps, limitations, sources, disclaimer: meta.disclaimer },
@@ -676,20 +967,28 @@ export async function buildDeliverable({
       retrievedAt: item.retrievedAt,
       rawHash: item.rawHash,
     })),
-    entities: sevenN.rows.map((row, index) => ({
-      entityId: `entity_${index + 1}`,
+    entities: sevenN.rows.map((row) => ({
+      // Preserve the real entity identifier: `entityId` when the data model has
+      // one, otherwise the legacy artifact subjectId. A display-name fallback is
+      // recorded as entityKey with joinKey='name' and never pretends to be an
+      // artifact subject.
+      entityId: row.entity.entityId ?? row.entity.artifactSubjectId ?? null,
+      entityKey: row.entity.entityKey,
+      joinKey: row.entity.joinKind,
+      artifactSubjectId: row.entity.artifactSubjectId,
+      subjectId: row.entity.subjectId,
       name: row.entity.name,
-      platformId: row.platform.note,
+      platformId: row.platform.platformId,
       platformName: row.platform.name,
       platformCategory: row.sheet.match(/^\d+/) ? row.sheet.match(/^\d+/)[0] : '',
       path: row.platform.name,
-      ownership: row.entity.largestShareholderPct ? `${row.entity.largestShareholderPct}` : '',
-      fields: {},
+      ownership: row.entity.largestShareholderPct ? String(row.entity.largestShareholderPct) : '',
+      fields: row.entity.fields,
       claimRefs: row.claimRefs,
     })),
     sevenN,
     comprehensive: { sheets: comprehensive },
-    qa: { blocking: [], warnings: [], passed: true },
+    qa: { passed: null, provisional: true, blocking: [], warnings: [] },
     signoff: {
       preparedBy: signoff.preparedBy ?? 'equity-diligence',
       reviewedBy: signoff.reviewedBy ?? '',
@@ -699,8 +998,10 @@ export async function buildDeliverable({
     },
     cellMap: findings.filter((finding) => finding.claimId).map((finding) => {
       const claim = allClaims.find((item) => item.claimId === finding.claimId)
+      const artifact = claim ? artifacts.find((item) => item.claimIds?.includes(claim.claimId)) : null
       return {
         location: `01_管理层摘要.md#${finding.findingId}`,
+        workpaper: artifact ? workpaperRelativePath(artifact) : null,
         claimId: finding.claimId,
         artifactId: claim?.artifactId ?? finding.artifactId,
         artifactRevision: claim?.artifactRevision ?? null,
@@ -710,25 +1011,80 @@ export async function buildDeliverable({
       }
     }),
   }
-  const inputFile = join(outDir, '.build-input.json')
+  const inputFile = join(qaDir, 'build-input.json')
   await atomicWriteJson(inputFile, buildInput)
-  const buildResult = await runPython(join(PACKAGE_ROOT, 'python', 'build_workbooks.py'), ['--input', inputFile, '--out', outDir])
-  const workbookMap = await readJson(join(outDir, 'workbook_map.json'), null)
+  const pythonScript = join(PACKAGE_ROOT, 'python', 'build_workbooks.py')
+  const mapFile = join(outDir, 'workbook_map.json')
 
-  // QA
+  // 1) preliminary build + real QA (no hardcoded `passed: true` anywhere)
+  await runPython(pythonScript, ['--input', inputFile, '--out', outDir])
+  let workbookMap = await readJson(mapFile, null)
   const qa = await validateDelivery({
     root,
     outDir,
+    qaDir,
     artifacts,
+    verifiedArtifacts: artifacts,
+    allArtifacts,
     claims: allClaims,
     evidence,
     findings,
+    comprehensive,
     workbookMap,
     meta,
+    signoff: buildInput.signoff,
   })
 
-  // Manifest
-  const files = await listFiles(outDir, { filter: (file) => !file.endsWith('.build-input.json') })
+  // 2) write the real QA back into the build input and rebuild the workbooks so
+  //    `10_体检单` carries the same verdict as manifest.json / QA与签发记录.md.
+  buildInput.qa = qaPayload(qa)
+  await atomicWriteJson(inputFile, buildInput)
+  const buildResult = await runPython(pythonScript, ['--input', inputFile, '--out', outDir])
+  workbookMap = await readJson(mapFile, null)
+
+  // Manifest + QA record. QA is written before hashing so it is part of the
+  // manifest; manifest.json cannot hash itself and is therefore not listed.
+  const manifestBase = {
+    schemaVersion: 1,
+    projectId: project.projectId,
+    generatedAt: nowIso(),
+    builderVersion: BUILDER_VERSION,
+    runId: run?.runId ?? null,
+    snapshotHash: plan?.snapshotHash ?? null,
+    template,
+    counts: {
+      artifacts: artifacts.length,
+      workpapers: workpapers.length,
+      claims: allClaims.length,
+      evidence: evidence.length,
+    },
+    artifacts: artifacts.map((artifact) => ({
+      id: artifact.id,
+      type: artifact.type,
+      subjectId: artifact.subjectId,
+      partitionKey: artifact.partitionKey,
+      revision: artifact.revision,
+      contentHash: artifact.contentHash,
+      status: artifact.status,
+      asOf: artifact.asOf,
+      workpaper: workpaperRelativePath(artifact),
+    })),
+    evidenceCount: evidence.length,
+    claimCount: allClaims.length,
+    qa: qaPayload(qa),
+    signoff: buildInput.signoff,
+    cellMap: buildInput.cellMap,
+  }
+  await atomicWriteText(join(outDir, 'QA与签发记录.md'), qaMarkdown({ qa, manifest: manifestBase, signoff: buildInput.signoff }))
+  const isDeliverableFile = (file) => {
+    const relative = portableRelative(outDir, file)
+    if (relative === 'manifest.json') return false
+    if (relative === '.build-input.json' || relative.endsWith('/.build-input.json')) return false
+    if (relative.endsWith('.inspect.json')) return false
+    if (relative.split('/').some((segment) => segment.startsWith('.'))) return false
+    return true
+  }
+  const files = await listFiles(outDir, { filter: isDeliverableFile })
   const manifestFiles = []
   for (const file of files) {
     const info = await statOrNull(file)
@@ -739,33 +1095,17 @@ export async function buildDeliverable({
       kind: file.endsWith('.xlsx') ? 'xlsx' : file.endsWith('.md') ? 'markdown' : file.endsWith('.json') ? 'json' : 'other',
     })
   }
-  const manifest = {
-    schemaVersion: 1,
-    projectId: project.projectId,
-    generatedAt: nowIso(),
-    builderVersion: BUILDER_VERSION,
-    runId: run?.runId ?? null,
-    snapshotHash: plan?.snapshotHash ?? null,
-    template,
-    files: manifestFiles,
-    artifacts: artifacts.map((artifact) => ({
-      id: artifact.id,
-      type: artifact.type,
-      subjectId: artifact.subjectId,
-      partitionKey: artifact.partitionKey,
-      revision: artifact.revision,
-      contentHash: artifact.contentHash,
-      status: artifact.status,
-      asOf: artifact.asOf,
-    })),
-    evidenceCount: evidence.length,
-    claimCount: allClaims.length,
-    qa: { passed: qa.passed, blocking: qa.blocking, warnings: qa.warnings },
-    signoff: buildInput.signoff,
-    cellMap: buildInput.cellMap,
-  }
+  const manifest = { ...manifestBase, files: manifestFiles }
   await atomicWriteJson(join(outDir, 'manifest.json'), manifest)
-  await atomicWriteText(join(outDir, 'QA与签发记录.md'), qaMarkdown({ qa, manifest, signoff: buildInput.signoff }))
+
+  // Manifest/directory correspondence is part of the contract, not a courtesy.
+  const listed = manifestFiles.map((file) => file.path).sort()
+  const onDisk = (await listFiles(outDir, { filter: isDeliverableFile }))
+    .map((file) => portableRelative(outDir, file))
+    .sort()
+  if (canonicalJson(listed) !== canonicalJson(onDisk)) {
+    throw new EquityError('manifest_mismatch', 'manifest.json 与交付目录不一致', { listed, onDisk })
+  }
 
   const ddRequests = gaps.map((gap, index) => ({
     id: `DD-${String(index + 1).padStart(2, '0')}`,
@@ -782,9 +1122,12 @@ export async function buildDeliverable({
     manifest,
     qa,
     workbookMap,
+    buildInput,
+    inputFile,
+    workpapers,
     ddRequests,
     findings,
-    stdout: buildResult.stdout,
+    stdout: buildResult.stdout ?? '',
   }
 }
 

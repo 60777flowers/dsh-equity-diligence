@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -64,6 +65,17 @@ test('pipeline: skill-only completes with evidence, report and DD requests', asy
   assert.ok(report.data.summaryFindings.length >= 5)
   assert.ok(report.data.cellMap.length >= 1)
   assert.equal(report.data.qa.passed, true)
+
+  // A4: after a completed fixture run nothing is stale and completeness is reachable.
+  const state = await projectState({ root: opened.root, library: opened.library, project: opened.project, playbook: opened.playbook })
+  assert.equal(state.stale.length, 0, JSON.stringify(state.stale))
+  assert.equal(state.readiness.artifactVerified, true)
+  assert.equal(state.readiness.investigationComplete, true)
+  assert.equal(state.readiness.deliveryReady, false) // requires user signoff
+  const identity = artifacts.find((artifact) => artifact.type === 'company.identity')
+  assert.ok(identity.producedBy.instanceId)
+  assert.ok(identity.producedBy.templateSha)
+  assert.equal(identity.codeVersion.includes('+tmpl:'), true)
 })
 
 test('pipeline: resume skips accepted units and stays idempotent', async (t) => {
@@ -116,7 +128,10 @@ test('pipeline: deliverable package has the 11-sheet workbook and clean 20-colum
   assert.ok(names.includes('01_管理层摘要.md'))
   assert.ok(names.includes('02_综合尽调工作簿.xlsx'))
   assert.ok(names.includes('03_专项_投资版图_7+N.xlsx'))
-  assert.ok(names.includes('manifest.json'))
+  // The manifest hashes every deliverable file but cannot hash itself, so the
+  // builder writes it without listing it in `files` (D's delivery contract).
+  assert.ok(existsSync(join(result.outDir, 'manifest.json')))
+  assert.ok(!names.includes('manifest.json'))
   const map = JSON.parse(await readFile(join(result.outDir, 'workbook_map.json'), 'utf8'))
   assert.equal(map.sheets.filter((sheet) => sheet.file === '02').length, 11)
   assert.equal(map.sevenN.columnCount, 20)

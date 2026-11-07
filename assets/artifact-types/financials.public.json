@@ -485,11 +485,55 @@
               }
             }
           }
+        },
+        "availability": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "found",
+                "not_disclosed_after_search",
+                "lower_bound",
+                "pending_dd",
+                "conflict",
+                "not_applicable",
+                "not_reviewed",
+                "estimated"
+              ],
+              "description": "六态结论；not_disclosed_after_search 是合法终态"
+            },
+            "checkedSources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "实际检索过的独立来源；非公众主体至少 2 个"
+              }
+            },
+            "note": {
+              "type": "string",
+              "description": "检索范围与结论说明；status=not_disclosed_after_search 时必填"
+            },
+            "checkedAt": {
+              "type": "string"
+            },
+            "databases": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "queries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
         }
-      },
-      "required": [
-        "fiscalYear"
-      ]
+      }
     }
   },
   "$defs": {

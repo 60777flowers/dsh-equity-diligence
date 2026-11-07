@@ -95,13 +95,144 @@ function isFilled(value) {
   return value !== undefined && value !== null && value !== '' && !(Array.isArray(value) && value.length === 0)
 }
 
+/* ------------------------------------------------------------------ */
+/* Context & variants (review B3)                                      */
+/*                                                                     */
+/* `context` carries the *subject* the output is about, so a gate can   */
+/* branch on `listingStatus` instead of requiring annual-report fields  */
+/* from a subject that has no disclosure obligation. Without context    */
+/* every gate behaves exactly as before (variants fall back to their    */
+/* `when`-less default), which keeps the existing gate tests valid.     */
+/* ------------------------------------------------------------------ */
+
+const EMPTY_SCOPE = Object.freeze({ subject: {}, project: {} })
+
+function normalizeContext(context) {
+  if (!context) return EMPTY_SCOPE
+  if (typeof context === 'string') return { subject: { listingStatus: context }, project: {} }
+  const rawSubject = context.subject ?? context.target ?? {}
+  const subject = isPlainObject(rawSubject) ? { ...rawSubject } : {}
+  const project = isPlainObject(context.project) ? { ...context.project } : {}
+  if (subject.listingStatus === undefined || subject.listingStatus === 'unknown') {
+    subject.listingStatus = context.listingStatus
+      ?? project.engagement?.listingStatus
+      ?? project.listingStatus
+      ?? subject.listingStatus
+  }
+  return { subject, project }
+}
+
+function resolveScopeValues(scope, output, path) {
+  const text = String(path ?? '').trim()
+  if (!text) return []
+  if (text.startsWith('subject.')) return getByPathValues(scope?.subject ?? {}, text.slice('subject.'.length))
+  if (text.startsWith('project.')) return getByPathValues(scope?.project ?? {}, text.slice('project.'.length))
+  if (text === 'subject') return getByPathValues(scope?.subject ?? {}, '')
+  if (text === 'listingStatus') {
+    if (scope?.subject?.listingStatus !== undefined) return [scope.subject.listingStatus]
+    if (scope?.project?.listingStatus !== undefined) return [scope.project.listingStatus]
+    return []
+  }
+  const rest = text.startsWith('output.') ? text.slice('output.'.length) : text
+  return getByPathValues(output ?? {}, rest)
+}
+
+function unquote(value) {
+  return String(value ?? '').trim().replace(/^['"]|['"]$/g, '')
+}
+
+/** Does a variant `when` condition match the subject/project/output scope? */
+export function matchesVariantCondition(condition, { scope = EMPTY_SCOPE, output = undefined } = {}) {
+  if (condition === undefined || condition === null) return true
+  if (typeof condition === 'string') {
+    const inMatch = /^(.+?)\s+in\s*\[(.*)\]$/.exec(condition.trim())
+    if (inMatch) {
+      const allowed = inMatch[2].split(',').map(unquote).filter(Boolean)
+      const values = resolveScopeValues(scope, output, inMatch[1].trim())
+      return values.some((value) => allowed.includes(String(value)))
+    }
+    const neq = /^(.+?)\s*!=\s*(.+)$/.exec(condition.trim())
+    if (neq) {
+      const values = resolveScopeValues(scope, output, neq[1].trim())
+      return values.length > 0 && values.every((value) => String(value) !== unquote(neq[2]))
+    }
+    const eq = /^(.+?)\s*==\s*(.+)$/.exec(condition.trim())
+    if (eq) {
+      const values = resolveScopeValues(scope, output, eq[1].trim())
+      return values.some((value) => String(value) === unquote(eq[2]))
+    }
+    return resolveScopeValues(scope, output, condition).some((value) => isFilled(value))
+  }
+  if (Array.isArray(condition)) return condition.every((item) => matchesVariantCondition(item, { scope, output }))
+  if (Array.isArray(condition.all)) return condition.all.every((item) => matchesVariantCondition(item, { scope, output }))
+  if (Array.isArray(condition.any)) return condition.any.some((item) => matchesVariantCondition(item, { scope, output }))
+  if (condition.not !== undefined) return !matchesVariantCondition(condition.not, { scope, output })
+  const values = resolveScopeValues(scope, output, condition.path)
+  const filled = values.filter((value) => isFilled(value))
+  if (condition.exists === false) return filled.length === 0
+  if (condition.exists === true) return filled.length > 0
+  if (Array.isArray(condition.in)) {
+    const allowed = condition.in.map(String)
+    return filled.some((value) => allowed.includes(String(value)))
+  }
+  if (Array.isArray(condition.notIn)) {
+    const denied = condition.notIn.map(String)
+    return filled.length > 0 && filled.every((value) => !denied.includes(String(value)))
+  }
+  if (Object.hasOwn(condition, 'equals')) return filled.some((value) => String(value) === String(condition.equals))
+  return filled.some(Boolean)
+}
+
+/** A variant with no `when` is the fallback used when nothing matched. */
+export function selectVariant(variants, { scope = EMPTY_SCOPE, output = undefined } = {}) {
+  if (!Array.isArray(variants) || variants.length === 0) return null
+  for (const variant of variants) {
+    if (!isPlainObject(variant) || variant.when === undefined) continue
+    if (matchesVariantCondition(variant.when, { scope, output })) return variant
+  }
+  return variants.find((variant) => isPlainObject(variant) && variant.when === undefined) ?? null
+}
+
+function mergeVariantRules(base, variant) {
+  const merged = { ...base }
+  for (const [key, value] of Object.entries(variant.rules ?? {})) {
+    if (key === 'consistency') {
+      // Merge by rule id: a variant can replace one rule and keep the rest.
+      const byId = new Map()
+      for (const item of base.consistency ?? []) byId.set(item.id ?? item.rule, item)
+      for (const item of value ?? []) byId.set(item.id ?? item.rule, item)
+      merged.consistency = [...byId.values()]
+    } else if (key === 'minItems' || key === 'minValues') {
+      const next = { ...(base[key] ?? {}) }
+      for (const [path, min] of Object.entries(value ?? {})) {
+        if (min === 0 || min === null) delete next[path]
+        else next[path] = min
+      }
+      merged[key] = next
+    } else {
+      merged[key] = value
+    }
+  }
+  return merged
+}
+
+/** Strip `variants` and overlay the selected variant's rule overrides. */
+export function applyGateVariant(rule, { scope = EMPTY_SCOPE, output = undefined } = {}) {
+  if (!isPlainObject(rule)) return { rule, variantId: null }
+  const { variants, variantBy, ...base } = rule
+  if (!Array.isArray(variants) || variants.length === 0) return { rule: base, variantId: null }
+  const variant = selectVariant(variants, { scope, output })
+  if (!variant) return { rule: base, variantId: null }
+  return { rule: mergeVariantRules(base, variant), variantId: variant.id ?? null }
+}
+
 function relativeAfterWildcard(path) {
   const index = String(path).indexOf('[]')
   if (index < 0) return String(path)
   return String(path).slice(index + 2).replace(/^\./, '')
 }
 
-function consistencyCheck(rule, output) {
+function consistencyCheck(rule, output, scope = EMPTY_SCOPE) {
   const kind = rule.kind ?? rule.rule
   const id = `consistency:${rule.id ?? kind ?? 'check'}`
   // `block` and `issue` require a human before acceptance; `warn`/`attention`
@@ -113,9 +244,9 @@ function consistencyCheck(rule, output) {
   if (rule.when && !['requiredWhen', 'requiredFieldsWhen', 'crossRef', 'requiresLedger'].includes(kind)) {
     const match = /^(.+?)\s*==\s*(['"]?)(.*?)\2$/.exec(String(rule.when))
     if (match) {
-      const candidates = getByPathValues(output, match[1].trim())
+      const candidates = resolveScopeValues(scope, output, match[1].trim())
       if (!candidates.some((value) => String(value) === match[3])) return null
-    } else if (!getByPath(output, rule.when)) {
+    } else if (!resolveScopeValues(scope, output, rule.when).some((value) => isFilled(value))) {
       return null
     }
   }
@@ -341,6 +472,12 @@ function consistencyCheck(rule, output) {
     const ok = numbers.every((value) => value !== null) && numbers.every((value, index) => index === 0 || value >= numbers[index - 1])
     return ok ? null : fail(`${path} 未按升序排列`)
   }
+  if (kind === 'allHaveStatus' || kind === 'all_have_status') {
+    const allowed = new Set(rule.allowed ?? ['pass', 'fail', 'insufficient'])
+    const list = Array.isArray(getByPath(output, path)) ? getByPath(output, path) : []
+    const invalid = list.filter((item) => !isPlainObject(item) || !allowed.has(item.status))
+    return invalid.length === 0 ? null : fail(`${path} 有 ${invalid.length} 条缺少合法 status（${[...allowed].join('/')}）`)
+  }
   if (kind === 'order_conditional') {
     return advisory('order_conditional 暂按提示处理')
   }
@@ -350,7 +487,7 @@ function consistencyCheck(rule, output) {
   return advisory(`未实现的 consistency 规则：${kind}`)
 }
 
-function checkRule(rule, output) {
+function checkRule(rule, output, scope = EMPTY_SCOPE) {
   const checks = []
   if (typeof rule.minEvidence === 'number' && countEvidence(output) < rule.minEvidence) {
     checks.push(fail('evidence', `证据数 ${countEvidence(output)} < ${rule.minEvidence}`))
@@ -366,6 +503,18 @@ function checkRule(rule, output) {
   for (const [path, min] of Object.entries(rule.minItems ?? {})) {
     const value = getByPath(output, path)
     if (!Array.isArray(value) || value.length < min) checks.push(fail(`minItems:${path}`, `${path} 少于 ${min} 项`))
+  }
+  // Numeric minimum that must also exist (unlike `range`, which skips absent
+  // values): used by non-public availability (`checkedSources >= 2`).
+  for (const [path, min] of Object.entries(rule.minValues ?? {})) {
+    const value = getByPath(output, path)
+    if (!isFilled(value)) {
+      checks.push(fail(`minValue:${path}`, `${path} 缺失`))
+      continue
+    }
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric)) checks.push(fail(`minValue:${path}`, `${path} 不是数值`))
+    else if (numeric < min) checks.push(fail(`minValue:${path}`, `${path} = ${numeric} < ${min}`))
   }
   for (const path of rule.sixStateFields ?? []) {
     const values = getByPathValues(output, path)
@@ -402,7 +551,7 @@ function checkRule(rule, output) {
     }
   }
   for (const item of rule.consistency ?? []) {
-    const result = consistencyCheck(item, output)
+    const result = consistencyCheck(item, output, scope)
     if (result) checks.push(result)
   }
   return checks
@@ -422,16 +571,22 @@ function rubricScores(output) {
 
 /**
  * Evaluate every declared gate.
- * @returns {{passed: boolean, checks: object[], blocking: boolean, coverage: number, rubric: object|null}}
+ *
+ * `context` is optional. When supplied (e.g. `{ target }`, `{ subject: { listingStatus } }`
+ * or `{ subject, project }`) rules may branch on subject/project fields through
+ * `variants[].when`; when omitted, every rule keeps its historical behaviour.
+ * @returns {{passed: boolean, checks: object[], blocking: boolean, coverage: number, rubric: object|null, variant: string|null}}
  */
-export function evaluateGates({ module, output, outputType = undefined, review = undefined }) {
+export function evaluateGates({ module, output, outputType = undefined, review = undefined, context = undefined }) {
+  const scope = normalizeContext(context)
   const checks = []
   let blocking = false
   let rubric = null
+  let variantId = null
   // A multi-output builder may have per-output semantics: the deliverable index
   // carries files/QA/signoff, while the DD request list carries only items.
   if (module?.id === 'builtin/deliverable' && outputType === 'dd.request_list') {
-    return { passed: true, blocking: false, checks: [pass('schema', 'schema 已通过')], coverage: 1, rubric: null }
+    return { passed: true, blocking: false, checks: [pass('schema', 'schema 已通过')], coverage: 1, rubric: null, variant: null }
   }
   for (const gate of module.manifest.gates ?? []) {
     if (gate.type === 'schema') {
@@ -450,16 +605,18 @@ export function evaluateGates({ module, output, outputType = undefined, review =
       continue
     }
     if (gate.type === 'rule') {
-      const rule = { ...(module.gates ?? {}), ...(gate.config ?? {}) }
+      const merged = { ...(module.gates ?? {}), ...(gate.config ?? {}) }
       // The declared coverage gate already computes coverage; do not repeat it
       // through the rule gate just because rules/gates.json also has minCoverage.
-      if ((module.manifest.gates ?? []).some((candidate) => candidate.type === 'coverage')) delete rule.minCoverage
-      const ruleChecks = checkRule(rule, output)
+      if ((module.manifest.gates ?? []).some((candidate) => candidate.type === 'coverage')) delete merged.minCoverage
+      const selected = applyGateVariant(merged, { scope, output })
+      variantId = variantId ?? selected.variantId
+      const ruleChecks = checkRule(selected.rule, output, scope)
       if (ruleChecks.length > 0) {
         checks.push(...ruleChecks)
         if (ruleChecks.some((check) => check.blocking !== false)) blocking = true
       } else {
-        checks.push(pass(gate.id ?? 'rule', '规则通过'))
+        checks.push(pass(gate.id ?? 'rule', selected.variantId ? `规则通过（${selected.variantId}）` : '规则通过'))
       }
       continue
     }
@@ -490,7 +647,9 @@ export function evaluateGates({ module, output, outputType = undefined, review =
   // manifest only declares schema/coverage. Run it as one synthetic rule gate.
   const hasRuleGate = (module.manifest.gates ?? []).some((gate) => gate.type === 'rule')
   if (!hasRuleGate && module.gates && Object.keys(module.gates).length > 0) {
-    const ruleChecks = checkRule(module.gates, output)
+    const selected = applyGateVariant(module.gates, { scope, output })
+    variantId = variantId ?? selected.variantId
+    const ruleChecks = checkRule(selected.rule, output, scope)
     if (ruleChecks.length > 0) {
       checks.push(...ruleChecks)
       if (ruleChecks.some((check) => check.blocking !== false)) blocking = true
@@ -504,5 +663,6 @@ export function evaluateGates({ module, output, outputType = undefined, review =
     checks,
     coverage: computeCoverage(output),
     rubric,
+    variant: variantId,
   }
 }

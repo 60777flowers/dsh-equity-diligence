@@ -518,11 +518,34 @@
                 "type": "object",
                 "additionalProperties": true,
                 "properties": {
+                  "entityId": {
+                    "type": "string",
+                    "description": "稳定内部主体 ID；7+N 联接键，优先于旧 subjectId"
+                  },
+                  "subjectId": {
+                    "type": "string",
+                    "description": "遗留联接键；新数据用 entityId"
+                  },
                   "name": {
                     "type": "string"
                   },
                   "fullName": {
                     "type": "string"
+                  },
+                  "jurisdiction": {
+                    "type": "string"
+                  },
+                  "listingStatus": {
+                    "type": "string",
+                    "enum": [
+                      "unknown",
+                      "unlisted",
+                      "ipo_applied",
+                      "listed",
+                      "suspended",
+                      "delisted",
+                      "not_applicable"
+                    ]
                   },
                   "path": {
                     "type": "string"

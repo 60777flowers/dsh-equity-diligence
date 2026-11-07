@@ -46,11 +46,18 @@
 
 ## 输出字段清单
 
-- `data.fiscalYear`（必填）、`data.currency`、`data.accountingStandard`、`data.auditOpinion`、`data.consolidation`
+- `data.fiscalYear`（上市/发债等公众主体必填；非公众主体可省略）、`data.currency`、`data.accountingStandard`、`data.auditOpinion`、`data.consolidation`
 - `data.revenue` / `data.netProfit`：amount / currency / unit / note
 - `data.grossMargin`（0–1 小数）
 - `data.statements`：三表摘要对象
 - `data.recon[]`：check / left / right / status / note
+- `data.availability`（非公众主体必填）：`status` / `note` / `checkedSources[]`
+  - 非上市、未发债、无公开财报义务的主体，先检索至少 2 个独立来源（如国家企业信用信息公示系统、信用中国、裁判文书/交易所披露），仍无财报时写：
+    ```json
+    {"status":"not_disclosed_after_search","note":"已查公示系统/信用中国/交易所，无公开财务报表","checkedSources":["gsxt","creditchina"]}
+    ```
+  - 非公众主体的 `status` 只接受 `not_disclosed_after_search`；`pending_dd`、`not_reviewed`、`found` 不得作为交付结论。若确实取得财报，走公众口径并填 `fiscalYear/revenue/netProfit/recon`。
+  - 不要用空对象、空数组或“无”代替检索结论；`checkedSources` 至少 2 个。
 
 ## 勾稽清单（必须逐条）
 

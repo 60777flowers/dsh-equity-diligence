@@ -4,6 +4,7 @@ import { EquityError, isPlainObject, newId, semanticHash } from './util/json.js'
 import { atomicWriteJson, readJson, readText } from './util/fs.js'
 import { nowIso } from './util/time.js'
 import { subjectIdFor } from './util/ids.js'
+import { subjectIdForTarget } from './kernel/subjects.js'
 import {
   ASSETS_DIR,
   defaultUserModulesDir,
@@ -34,6 +35,7 @@ import {
   listArtifacts,
   listClaims,
   listEvidence,
+  listVerifiedArtifacts,
   readArtifact,
   readEvidenceBlob,
   recordArtifact,
@@ -44,6 +46,7 @@ import { projectState } from './kernel/state.js'
 import { createIssue, decideIssue, listIssues } from './kernel/issues.js'
 import { createExecutor } from './engines/index.js'
 import { buildDeliverable } from './builders/package.js'
+import { validateDelivery } from './builders/check.js'
 
 export class EquityService {
   constructor({ ctx, config = {} }) {
@@ -51,6 +54,7 @@ export class EquityService {
     this.config = config
     this.library = null
     this.libraryError = null
+    this.activeProjectRuns = new Map()
     this.startedAt = nowIso()
   }
 
@@ -248,6 +252,12 @@ export class EquityService {
 
   async startPlan({ opened, library, playbook, plan, executor, options = {} }) {
     const wait = options.wait !== false
+    const projectKey = opened.project.projectId
+    if (this.activeProjectRuns.has(projectKey)) {
+      throw new EquityError('run_conflict', `项目已有运行中的调查：${projectKey}`, { projectId: projectKey })
+    }
+    this.activeProjectRuns.set(projectKey, true)
+    const releaseRun = () => this.activeProjectRuns.delete(projectKey)
     let resolveStarted
     const started = new Promise((resolve) => {
       resolveStarted = resolve
@@ -261,6 +271,7 @@ export class EquityService {
       executor,
       resumeFrom: options.resumeFrom ?? null,
       signal: options.signal,
+      concurrency: options.concurrency ?? 1,
       engine: { executor: executor.name, provider: options.provider, model: options.model },
       onEvent: options.onEvent,
       onStart: (run) => {
@@ -273,6 +284,7 @@ export class EquityService {
       // next start call; keep the rejection visible in logs.
       console.error('[equity] run failed:', error)
     })
+    runPromise.finally(releaseRun).catch(() => {})
     if (!wait) {
       const summary = await started
       return { ...summary, background: true }
@@ -347,7 +359,15 @@ export class EquityService {
     return run
   }
 
-  async record(projectIdOrRoot, payload = {}) {
+  /**
+   * Write an artifact or evidence.
+   *
+   * Trust boundary (A2): `payload.status`/`payload.actor` are ignored. The
+   * agent tool path always writes `status=draft`, `actor=agent`; callers that
+   * are trusted code (internal tests, migration, system bootstrap) must say so
+   * explicitly through `options` — never through model-supplied payload.
+   */
+  async record(projectIdOrRoot, payload = {}, options = {}) {
     const opened = await this.resolveProject(projectIdOrRoot)
     const kind = payload.kind ?? 'artifact'
     if (kind === 'evidence') {
@@ -358,6 +378,12 @@ export class EquityService {
     if (kind !== 'artifact') throw new EquityError('bad_kind', 'kind 必须是 artifact/evidence')
     const type = payload.type
     if (!type) throw new EquityError('missing_type', '缺少底稿类型')
+    const trusted = options.trusted === true
+    const actor = trusted ? (options.actor ?? 'human') : 'agent'
+    const status = trusted ? (options.status ?? 'draft') : 'draft'
+    if (!['draft', 'verified', 'stale', 'rejected', 'running'].includes(status)) {
+      throw new EquityError('bad_status', `不支持的状态：${status}`)
+    }
     const data = payload.data ?? {}
     const output = payload.output ?? {
       asOf: payload.asOf ?? opened.project.engagement?.asOf,
@@ -379,12 +405,15 @@ export class EquityService {
       producedBy: {
         moduleId: payload.moduleId ?? 'manual',
         moduleVersion: payload.moduleVersion ?? '0.0.0',
-        actor: payload.actor ?? 'human',
+        instanceId: payload.instanceId ?? null,
+        templateSha: payload.templateSha ?? null,
+        actor,
       },
       derivedFrom: payload.derivedFrom ?? [],
-      status: payload.status ?? 'draft',
-      actor: payload.actor ?? 'human',
-      expectedRev: payload.expectedRev,
+      status,
+      actor,
+      expectedRev: options.expectedRev ?? payload.expectedRev,
+      requestId: options.requestId ?? payload.requestId,
     })
     return { kind: 'artifact', artifact: this.artifactSummary(record) }
   }
@@ -472,60 +501,112 @@ export class EquityService {
     return decideIssue(opened.root, issueId, { decision, reason, decidedBy: 'user' })
   }
 
-  async signoff(projectIdOrRoot, payload = {}) {
-    const opened = await this.resolveProject(projectIdOrRoot)
-    const signoff = {
-      preparedBy: payload.preparedBy ?? '',
-      reviewedBy: payload.reviewedBy ?? '',
-      approvedBy: payload.approvedBy ?? '',
-      proposedAt: payload.proposedAt ?? nowIso(),
-      signedAt: payload.signedAt ?? nowIso(),
-      note: payload.note ?? '',
+  /**
+   * User-only sign-off (A2/D2).
+   *
+   * - requires an explicit user actor via `options.actor === 'user'`;
+   * - re-reads the latest verified `report.deliverable` (pointer-verified);
+   * - requires `data.qa.passed === true` and zero QA blocking items;
+   * - verifies `contentHash === semanticHash(data)`;
+   * - `signedAt` (and `proposedAt`) are generated server-side; caller-supplied
+   *   timestamps are ignored so a signed report cannot be backdated/forged.
+   */
+  async signoff(projectIdOrRoot, payload = {}, options = {}) {
+    if (options.actor !== 'user') {
+      throw new EquityError('user_only', 'signoff 是用户专属动作；Agent 只能 proposeReview')
     }
-    const project = { ...opened.project, signoff, updatedAt: nowIso() }
-    await saveProject(project)
-    const deliverable = (await listArtifacts(opened.root)).find((artifact) => artifact.type === 'report.deliverable')
-    if (deliverable) {
-      const output = {
-        asOf: deliverable.asOf,
-        openQuestions: deliverable.openQuestions ?? [],
-        flags: deliverable.flags ?? [],
-        sourceCoverage: deliverable.sourceCoverage ?? {},
-        claims: [],
-        evidence: [],
-        data: { ...deliverable.data, signoff },
-      }
-      await recordArtifact({
-        root: opened.root,
-        library: this.requireLibrary(),
-        type: 'report.deliverable',
-        subjectId: deliverable.subjectId,
-        partitionKey: deliverable.partitionKey,
-        output,
-        producedBy: deliverable.producedBy,
-        derivedFrom: deliverable.derivedFrom,
-        status: 'verified',
-        actor: 'human',
-        id: deliverable.id,
+    const opened = await this.resolveProject(projectIdOrRoot)
+    const verified = await listVerifiedArtifacts(opened.root, { type: 'report.deliverable' })
+    const pointer = verified[0]
+    if (!pointer) {
+      throw new EquityError('deliverable_unverified', '没有 pointer 有效且 verified 的交付物可签发；请先构建并通过 QA')
+    }
+    // Re-read the latest revision after the pointer check; a concurrent rebuild
+    // must not be signed under an older hash.
+    const latest = await readArtifact(opened.root, 'report.deliverable', pointer.subjectId, pointer.partitionKey, 'current')
+    if (!latest || latest.revision !== pointer.revision || latest.contentHash !== pointer.contentHash) {
+      throw new EquityError('revision_conflict', '交付物在签发过程中被更新，请重新构建后再签发', {
+        expectedRev: pointer.revision,
+        actualRev: latest?.revision ?? null,
       })
     }
-    return { ok: true, signoff }
+    if (latest.data?.qa?.passed !== true) {
+      throw new EquityError('qa_failed', '交付物 QA 未通过，不能签发')
+    }
+    const blocking = latest.data?.qa?.blocking
+    const blockingCount = Array.isArray(blocking) ? blocking.length : typeof blocking === 'number' ? blocking : 0
+    if (blockingCount > 0) {
+      throw new EquityError('qa_failed', `交付物存在 ${blockingCount} 个 QA 阻断项，不能签发`, { blocking })
+    }
+    const actualHash = semanticHash(latest.data)
+    if (latest.contentHash !== actualHash) {
+      throw new EquityError('content_hash_mismatch', '交付物内容与 contentHash 不一致，不能签发', {
+        expected: latest.contentHash,
+        actual: actualHash,
+      })
+    }
+    const approvedBy = String(payload.approvedBy ?? '').trim()
+    if (!approvedBy) throw new EquityError('missing_approver', 'approvedBy（签发人）不能为空')
+
+    const signedAt = nowIso()
+    const signoff = {
+      preparedBy: String(payload.preparedBy ?? 'equity-diligence'),
+      reviewedBy: String(payload.reviewedBy ?? ''),
+      approvedBy,
+      proposedAt: nowIso(),
+      signedAt,
+      note: String(payload.note ?? ''),
+    }
+    const record = await recordArtifact({
+      root: opened.root,
+      library: this.requireLibrary(),
+      type: 'report.deliverable',
+      subjectId: latest.subjectId,
+      partitionKey: latest.partitionKey,
+      output: {
+        asOf: latest.asOf,
+        openQuestions: latest.openQuestions ?? [],
+        flags: latest.flags ?? [],
+        sourceCoverage: latest.sourceCoverage ?? {},
+        claims: [],
+        evidence: [],
+        data: { ...latest.data, signoff },
+      },
+      producedBy: { ...latest.producedBy, actor: 'human' },
+      derivedFrom: latest.derivedFrom,
+      status: 'verified',
+      actor: 'human',
+      expectedRev: latest.revision,
+      requestId: options.requestId,
+    })
+    const project = { ...opened.project, signoff, updatedAt: nowIso() }
+    await saveProject(project)
+    return { ok: true, signoff, artifact: this.artifactSummary(record) }
   }
 
   async deliver(projectIdOrRoot, action = 'build', options = {}) {
+    if (action === 'verify') return this.verifyDelivery(projectIdOrRoot, options)
     const opened = await this.resolveProject(projectIdOrRoot)
     if (action === 'present') {
-      const deliverable = (await listArtifacts(opened.root)).find((artifact) => artifact.type === 'report.deliverable')
+      const deliverable = (await listVerifiedArtifacts(opened.root, { type: 'report.deliverable' }))[0]
+      if (!deliverable) {
+        throw new EquityError('deliverable_unverified', '没有 pointer 有效的 verified 交付物可交付；请先构建并通过 QA')
+      }
       return {
         ok: true,
-        files: deliverable?.data?.files ?? [],
+        files: deliverable.data?.files ?? [],
+        deliverableId: deliverable.id,
+        revision: deliverable.revision,
+        signed: Boolean(deliverable.data?.signoff?.signedAt),
         outDir: join(opened.root, '05_交付'),
         note: '由父 Agent 使用 present 工具把文件卡交给用户；本工具不复制文件内容。',
       }
     }
     const runs = await listRunRecords(opened.root)
     const run = runs[0] ?? null
-    const plan = run ? null : this.compileOpened(opened).plan
+    const compiledPlan = this.compileOpened(opened).plan
+    const deliverableStep = compiledPlan?.steps?.find((step) => step.moduleId === 'builtin/deliverable') ?? null
+    const plan = run ? null : compiledPlan
     const result = await buildDeliverable({
       root: opened.root,
       library: this.requireLibrary(),
@@ -534,10 +615,15 @@ export class EquityService {
       plan: plan ?? { snapshotHash: run?.snapshotHash ?? null },
       run,
       template: options.template ?? opened.project.preset ?? 'standard',
-      signoff: opened.project.signoff ?? {},
+      // A rebuild is a new content hash: never inherit an earlier sign-off.
+      // The deliverable stays unsigned and `deliveryReady` false until the user
+      // signs this revision.
+      signoff: {},
     })
-    const allArtifacts = await listArtifacts(opened.root)
-    const pins = allArtifacts
+    // Delivery consumes released revisions only (A1). Draft/stale/rejected
+    // artifacts must not be pinned into the manifest lineage.
+    const verifiedArtifacts = await listVerifiedArtifacts(opened.root)
+    const pins = verifiedArtifacts
       .filter((artifact) => !['report.deliverable', 'dd.request_list'].includes(artifact.type))
       .map((artifact) => ({
         artifactId: artifact.id,
@@ -576,9 +662,16 @@ export class EquityService {
         files: result.manifest.files.map((file) => ({ path: file.path, sha256: file.sha256, kind: file.kind, size: file.size })),
         summaryFindings,
         cellMap: result.manifest.cellMap ?? [],
-        qa: { blocking: result.qa.blocking.length, warnings: result.qa.warnings.length, passed: result.qa.passed },
+        qa: { blocking: result.qa.blocking, warnings: result.qa.warnings, passed: result.qa.passed },
         signoff,
       },
+    }
+    const buildProducedBy = {
+      moduleId: 'builtin/deliverable',
+      moduleVersion: deliverableStep?.moduleVersion ?? '0.1.0',
+      instanceId: deliverableStep?.instanceId ?? null,
+      templateSha: deliverableStep?.templateSha ?? null,
+      actor: 'system',
     }
     const reportRecord = await recordArtifact({
       root: opened.root,
@@ -588,9 +681,9 @@ export class EquityService {
       partitionKey: '_default',
       output: reportOutput,
       derivedFrom: pins,
-      producedBy: { moduleId: 'builtin/deliverable', moduleVersion: '0.1.0', actor: 'human' },
+      producedBy: buildProducedBy,
       status: result.qa.passed ? 'verified' : 'draft',
-      actor: 'human',
+      actor: 'system',
     })
     const ddItems = result.ddRequests ?? []
     if (ddItems.length > 0) {
@@ -598,7 +691,7 @@ export class EquityService {
         root: opened.root,
         library: this.requireLibrary(),
         type: 'dd.request_list',
-        subjectId: subjectIdFor('co', opened.project.targets?.[0]?.name ?? opened.project.name),
+        subjectId: subjectIdForTarget(opened.project.targets?.[0] ?? { name: opened.project.name }, opened.project),
         partitionKey: '_default',
         output: {
           asOf: reportOutput.asOf,
@@ -610,9 +703,9 @@ export class EquityService {
           data: { items: ddItems },
         },
         derivedFrom: pins,
-        producedBy: { moduleId: 'builtin/deliverable', moduleVersion: '0.1.0', actor: 'human' },
+        producedBy: buildProducedBy,
         status: result.qa.passed ? 'verified' : 'draft',
-        actor: 'human',
+        actor: 'system',
       })
     }
     return {
@@ -626,6 +719,92 @@ export class EquityService {
         signoff: result.manifest.signoff,
       },
       qa: result.qa,
+    }
+  }
+
+  /**
+   * QA-only re-check of the existing delivery package (no rebuild).
+   *
+   * `validateDelivery` is re-run against `05_交付` using the build input snapshot
+   * persisted by the builder (`.equity/delivery/build-input.json`) plus the
+   * current verified-artifact view. If the package no longer matches the
+   * released revisions, QA is forced to fail with `package_stale`; this method
+   * never silently rebuilds (S wires /deliver action=verify to it).
+   */
+  async verifyDelivery(projectIdOrRoot, options = {}) {
+    const opened = await this.resolveProject(projectIdOrRoot)
+    const outDir = join(opened.root, '05_交付')
+    const qaDir = join(opened.root, '.equity', 'delivery')
+    const manifest = await readJson(join(outDir, 'manifest.json'), null)
+    const buildInput = await readJson(join(qaDir, 'build-input.json'), null)
+    if (!manifest || !buildInput) {
+      throw new EquityError('delivery_missing', '尚未构建交付包；请先执行 build 再体检', { outDir })
+    }
+    const workbookMap = await readJson(join(outDir, 'workbook_map.json'), null)
+    const allArtifacts = await listArtifacts(opened.root)
+    const verifiedAll = (await listVerifiedArtifacts(opened.root)).filter((artifact) => artifact.status === 'verified')
+    const verifiedById = new Map(verifiedAll.map((artifact) => [artifact.id, artifact]))
+    // QA must judge the package as built: use the manifest's artifact set, but
+    // re-read each record so tampering with current.json is visible.
+    const buildArtifacts = (manifest.artifacts ?? []).map((artifact) => verifiedById.get(artifact.id)).filter(Boolean)
+    const signoff = manifest.signoff ?? {}
+    const qa = await validateDelivery({
+      root: opened.root,
+      outDir,
+      qaDir,
+      artifacts: buildArtifacts.length > 0 ? buildArtifacts : verifiedAll,
+      verifiedArtifacts: verifiedAll,
+      allArtifacts,
+      claims: buildInput.claims ?? [],
+      evidence: buildInput.evidence ?? [],
+      findings: Array.isArray(buildInput.cellMap) ? buildInput.cellMap : [],
+      comprehensive: buildInput.comprehensive?.sheets ?? [],
+      workbookMap,
+      meta: { partial: false, signoff },
+      signoff,
+    })
+
+    // Freshness: the package must pin exactly the currently released inputs.
+    // Bookkeeping/terminal system types are updated by the runner AFTER the
+    // deliverable step (search ledger, coverage, trigger engine, the report
+    // itself); they never invalidate an otherwise identical business package.
+    const EXCLUDE = new Set(['report.deliverable', 'dd.request_list', 'search.ledger', 'source.coverage', 'risk.redflags'])
+    const current = new Map(
+      verifiedAll
+        .filter((artifact) => !EXCLUDE.has(artifact.type))
+        .map((artifact) => [`${artifact.id}@${artifact.revision}#${artifact.contentHash}`, artifact]),
+    )
+    const built = new Map(
+      (manifest.artifacts ?? [])
+        .filter((artifact) => !EXCLUDE.has(artifact.type))
+        .map((artifact) => [`${artifact.id}@${artifact.revision}#${artifact.contentHash}`, artifact]),
+    )
+    const missing = [...built.keys()].filter((key) => !current.has(key))
+    const added = [...current.keys()].filter((key) => !built.has(key))
+    const packageStale = missing.length > 0 || added.length > 0 || (manifest.template ?? 'standard') !== (options.template ?? manifest.template ?? 'standard')
+    let verdict = qa
+    if (packageStale) {
+      verdict = {
+        ...qa,
+        passed: false,
+        blocking: [
+          ...qa.blocking,
+          {
+            id: 'package_stale',
+            message: '交付包与当前 verified 底稿不一致，请重新构建后再体检',
+            missing,
+            added,
+          },
+        ],
+      }
+    }
+    return {
+      ok: verdict.passed === true,
+      qa: verdict,
+      outDir,
+      generatedAt: manifest.generatedAt ?? null,
+      checkedAt: nowIso(),
+      packageStale,
     }
   }
 

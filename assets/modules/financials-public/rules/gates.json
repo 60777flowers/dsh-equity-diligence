@@ -1,23 +1,8 @@
 {
   "minEvidence": 6,
   "minCoverage": 0.8,
-  "requiredFields": [
-    "data.fiscalYear",
-    "data.revenue",
-    "data.netProfit",
-    "data.recon"
-  ],
-  "minItems": {
-    "data.recon": 3
-  },
   "maxEstimatedRatio": 0.15,
   "consistency": [
-    {
-      "id": "reconComplete",
-      "path": "data.recon",
-      "rule": "all_have_status",
-      "note": "每条 recon 必须有 pass/fail/insufficient，不得留空"
-    },
     {
       "id": "grossMarginRange",
       "path": "data.grossMargin",
@@ -25,6 +10,71 @@
       "min": -1,
       "max": 1,
       "note": "毛利率为 0–1 小数；负值表示毛损"
+    }
+  ],
+  "variants": [
+    {
+      "id": "non_public",
+      "when": {
+        "path": "subject.listingStatus",
+        "in": [
+          "unlisted",
+          "ipo_applied",
+          "unknown",
+          "not_applicable"
+        ]
+      },
+      "rules": {
+        "minEvidence": 2,
+        "requiredFields": [
+          "data.availability"
+        ],
+        "minItems": {
+          "data.recon": 0,
+          "data.availability.checkedSources": 2
+        },
+        "sixStateFields": [
+          "data.availability"
+        ],
+        "consistency": [
+          {
+            "id": "availabilityTerminalStatus",
+            "path": "data.availability.status",
+            "rule": "enum",
+            "allowed": [
+              "not_disclosed_after_search"
+            ],
+            "note": "非公众主体只有“检索后确认未披露”是合法终态；pending_dd/not_reviewed/found 不得作为交付结论"
+          }
+        ]
+      }
+    },
+    {
+      "id": "public",
+      "rules": {
+        "requiredFields": [
+          "data.fiscalYear",
+          "data.revenue",
+          "data.netProfit",
+          "data.recon"
+        ],
+        "minItems": {
+          "data.recon": 3
+        },
+        "consistency": [
+          {
+            "id": "reconComplete",
+            "path": "data.recon",
+            "rule": "allHaveStatus",
+            "allowed": [
+              "pass",
+              "fail",
+              "insufficient"
+            ],
+            "note": "每条 recon 必须有 pass/fail/insufficient，不得留空"
+          }
+        ]
+      }
     }
   ]
 }

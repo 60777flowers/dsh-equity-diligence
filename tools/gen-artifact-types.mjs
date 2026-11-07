@@ -33,6 +33,10 @@ const INDEPENDENCE = ['independent', 'same_origin', 'self_reported', 'unknown']
 const VERIFICATION = ['verified', 'partial', 'unreachable', 'unverified']
 const CONFIDENCE = ['high', 'medium', 'low']
 const MATERIALITY = ['material', 'attention', 'context']
+// Identity layer: listing status is independent of identifiers (review B1),
+// and identifier verification reuses the evidence vocabulary (review B2).
+const LISTING_STATUSES = ['unknown', 'unlisted', 'ipo_applied', 'listed', 'suspended', 'delisted', 'not_applicable']
+const IDENTIFIER_VERIFICATION = ['unverified', 'partial', 'verified', 'unreachable', 'conflict']
 
 const str = (description) => ({ type: 'string', ...(description ? { description } : {}) })
 const num = (description) => ({ type: 'number', ...(description ? { description } : {}) })
@@ -236,8 +240,20 @@ const defs = [
     summaryFields: ['targetCount', 'resolvedCount'],
     data: openObject({
       targets: arr(openObject({
-        name: str(),
-        code: str(),
+        name: str('用户输入的名称（检索用，不得被解析结果覆盖）'),
+        inputName: str('原始输入名快照，用于对照解析后的法定名称'),
+        legalName: str('经核验的法定名称；仅由 entity-writeback 在 verified 且有 >=2 证据（或人工确认）时写入'),
+        entityId: str('稳定内部主体 ID；v2 项目用作 subjectId，v1 项目等于旧 co_<slug>'),
+        identifiers: arr(openObject({
+          scheme: str('CN_USCC / CN_LEGACY_REG_NO / SECURITY_TICKER / HK_CR_NO / LEI / AMAC_FUND_NO ...'),
+          value: str(),
+          issuer: str(),
+          jurisdiction: str(),
+          verificationStatus: { type: 'string', enum: IDENTIFIER_VERIFICATION },
+          isPrimary: bool(),
+        })),
+        listingStatus: { type: 'string', enum: LISTING_STATUSES, description: '独立字段，默认 unknown；不得由 code/identifiers 推断' },
+        code: str('遗留只读镜像（证券代码或信用代码），不参与上市状态推断'),
         market: str(),
         type: str(),
         jurisdiction: str(),
@@ -246,10 +262,20 @@ const defs = [
       resolution: arr(openObject({
         inputName: str(),
         legalName: str(),
+        entityId: str(),
+        identifiers: arr(openObject()),
+        listingStatus: { type: 'string', enum: LISTING_STATUSES },
         code: str(),
         confidence: { type: 'string', enum: CONFIDENCE },
+        verificationStatus: { type: 'string', enum: IDENTIFIER_VERIFICATION },
+        evidenceCount: num(),
+        contentHash: str(),
+        applied: bool(),
+        appliedFields: arr(str()),
+        note: str(),
         candidates: arr(openObject()),
       })),
+      contentHash: str('_resolution 分区的幂等键'),
       targetCount: num(),
       resolvedCount: num(),
     }, ['targets']),
@@ -263,8 +289,13 @@ const defs = [
     freshness: { maxAgeDays: 365 },
     summaryFields: ['legalName', 'code', 'status'],
     data: openObject({
+      entityId: str('稳定内部主体 ID；与 roster target.entityId 对应'),
+      inputName: str('本项目立项时输入的名称，用于回写匹配'),
+      entityKind: str('operating_company / listed_issuer / pre_ipo_company / holding_company / subsidiary / partnership_fund / contractual_fund / corporate_fund / fund_manager / gp_entity / spv / branch ...'),
+      jurisdiction: str('注册辖区（CN/HK/KY/BVI/SG ...）'),
+      listingStatus: { type: 'string', enum: LISTING_STATUSES, description: '独立字段；不得由 code/identifiers 推断，未核实时为 unknown' },
       legalName: str(),
-      code: str(),
+      code: str('遗留只读镜像；新数据请用 identifiers[]'),
       aliases: arr(str()),
       englishName: str(),
       domicile: address,
@@ -273,7 +304,18 @@ const defs = [
       registeredCapital: money,
       legalRepresentative: str(),
       businessScope: str(),
-      identifiers: arr(openObject({ kind: str(), value: str(), jurisdiction: str() })),
+      identifiers: arr(openObject({
+        scheme: str('CN_USCC / CN_LEGACY_REG_NO / SECURITY_TICKER / HK_CR_NO / SG_UEN / US_STATE_FILE_NO / SEC_CIK / LEI / KY_NO / BVI_NO / AMAC_MANAGER_NO / AMAC_FUND_NO / INTERNAL_PROVISIONAL'),
+        kind: str('遗留中文标签（统一社会信用代码等），读取时映射为 scheme'),
+        value: str(),
+        issuer: str('签发/登记机关'),
+        jurisdiction: str(),
+        verificationStatus: { type: 'string', enum: IDENTIFIER_VERIFICATION },
+        isPrimary: bool(),
+        checksum: { type: 'string', enum: ['valid', 'invalid'], description: 'USCC 校验位结果（可选；校验通过不等于已核验）' },
+        validFrom: str(),
+        validTo: str(),
+      })),
       branches: arr(namedParty),
       controllingPerson: sixState,
       notes: str(),
@@ -360,8 +402,12 @@ const defs = [
           role: str(),
           vehicles: arr(namedParty),
           entities: arr(openObject({
+            entityId: str('稳定内部主体 ID；7+N 联接键，优先于旧 subjectId'),
+            subjectId: str('遗留联接键；新数据用 entityId'),
             name: str(),
             fullName: str(),
+            jurisdiction: str(),
+            listingStatus: { type: 'string', enum: LISTING_STATUSES },
             path: str(),
             directPct: num(),
             indirectPct: num(),
@@ -612,7 +658,18 @@ const defs = [
         status: { type: 'string', enum: ['pass', 'fail', 'insufficient'] },
         note: str(),
       })),
-    }, ['fiscalYear']),
+      // Non-public subjects (unlisted / pre-IPO / unknown / not_applicable)
+      // have no public disclosure obligation: the listed fields above are not
+      // required, `availability` records whether a search was exhausted.
+      availability: openObject({
+        status: { type: 'string', enum: SIX_STATES, description: '六态结论；not_disclosed_after_search 是合法终态' },
+        checkedSources: arr(str('实际检索过的独立来源；非公众主体至少 2 个')),
+        note: str('检索范围与结论说明；status=not_disclosed_after_search 时必填'),
+        checkedAt: str(),
+        databases: arr(str()),
+        queries: arr(openObject()),
+      }),
+    }),
   },
   {
     type: 'related.parties',
@@ -887,8 +944,10 @@ const defs = [
         artifactId: str(),
       })),
       qa: openObject({
-        blocking: num(),
-        warnings: num(),
+        // Delivered artifacts carry item details; older projects may carry
+        // numeric counts, so both shapes remain readable.
+        blocking: { oneOf: [num(), { type: 'array', items: { type: 'object', additionalProperties: true, properties: { id: str(), message: str() } } }] },
+        warnings: { oneOf: [num(), { type: 'array', items: { type: 'object', additionalProperties: true, properties: { id: str(), message: str() } } }] },
         passed: bool(),
       }),
       signoff: openObject({

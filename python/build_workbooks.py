@@ -527,14 +527,22 @@ def build_summary_rows(summary: dict) -> list[list[Any]]:
 
 
 def build_field_rows(comprehensive_sheet: dict) -> list[list[Any]]:
-    """02–05：字段 / 值 / 状态 / 证据（来自 comprehensive.sheets[].rows）。"""
+    """02–05：字段 / 值 / 状态 / 证据（来自 comprehensive.sheets[].rows）。
+
+    状态列必须是 8 个取值之一：缺失状态按 `not_reviewed` 写入，未知状态原样
+    写入并由体检单/check_deliverable 阻断；空值仍写「未提供/not_reviewed」，
+    但绝不把空值标成 `found`。
+    """
     rows: list[list[Any]] = []
     for raw_row in as_list(comprehensive_sheet.get("rows")):
         cells = list(raw_row) if isinstance(raw_row, (list, tuple)) else [raw_row]
-        cells = [as_text(cell) for cell in cells]
-        # 补齐到 4 列（空值占位），多余的列丢弃并在 map 里记警告
-        cells = (cells + [EMPTY] * 4)[:4]
-        rows.append(cells)
+        status_raw = cells[2] if len(cells) > 2 else None
+        status = as_text(status_raw, "")
+        if not status or status == EMPTY:
+            status = "not_reviewed"
+        value = as_text(cells[1] if len(cells) > 1 else None)
+        evidence = as_text(cells[3] if len(cells) > 3 else None)
+        rows.append([as_text(cells[0] if cells else None), value, status, evidence])
     return rows
 
 
@@ -828,6 +836,8 @@ def build_comprehensive(
 
         if name != "10_体检单" and not rows:
             rows = [[EMPTY] * len(headers)]
+            if name in ("02_主体与股权", "03_业务与技术", "04_财务", "05_风险"):
+                rows[0][2] = "not_reviewed"
             warnings.append(f"{name} 无数据行，已写一行占位")
 
         title = (
@@ -874,6 +884,13 @@ def build_comprehensive(
 
 
 # ================================================================ 03 构建
+def six_state_value(value: Any) -> Any:
+    """六态对象 {status,value,note} → 单元格值；普通值原样返回。"""
+    if isinstance(value, dict) and "status" in value:
+        return value.get("value")
+    return value
+
+
 def seven_n_values(row: dict) -> dict[int, Any]:
     """把 sevenN.rows 的一项摊平成「原始列号 → 原始值」。"""
     platform = as_dict(row.get("platform"))
@@ -883,24 +900,24 @@ def seven_n_values(row: dict) -> dict[int, Any]:
         2: platform.get("role") or platform.get("category"),
         3: platform.get("structure"),
         4: platform.get("positioning"),
-        5: platform.get("note") or platform.get("time") or platform.get("date"),
+        5: platform.get("time") or platform.get("note") or platform.get("date"),
         6: entity.get("name"),
         7: row.get("investigatedAt") or platform.get("investigatedAt") or platform.get("investigationTime"),
         8: row.get("reviewStatus") or platform.get("reviewStatus"),
-        9: entity.get("latestFunding"),
-        10: entity.get("largestShareholderPct"),
-        11: entity.get("top5Pct"),
-        12: entity.get("shareholderCount"),
-        13: entity.get("founderControl"),
-        14: entity.get("founderBackground"),
-        15: entity.get("industryChain"),
-        16: entity.get("expansionCycle"),
-        17: entity.get("prosperity"),
-        18: entity.get("grossMargin"),
-        19: entity.get("ranking"),
-        20: entity.get("techRelevance"),
-        21: entity.get("totalFunding"),
-        22: entity.get("assessment"),
+        9: six_state_value(entity.get("latestFunding")),
+        10: six_state_value(entity.get("largestShareholderPct")),
+        11: six_state_value(entity.get("top5Pct")),
+        12: six_state_value(entity.get("shareholderCount")),
+        13: six_state_value(entity.get("founderControl")),
+        14: six_state_value(entity.get("founderBackground")),
+        15: six_state_value(entity.get("industryChain")),
+        16: six_state_value(entity.get("expansionCycle")),
+        17: six_state_value(entity.get("prosperity")),
+        18: six_state_value(entity.get("grossMargin")),
+        19: six_state_value(entity.get("ranking")),
+        20: six_state_value(entity.get("techRelevance")),
+        21: six_state_value(entity.get("totalFunding")),
+        22: six_state_value(entity.get("assessment")),
         23: entity.get("dataQuality"),
         24: row.get("jsonFile") or row.get("resultJsonFile") or row.get("resultJson"),
     }

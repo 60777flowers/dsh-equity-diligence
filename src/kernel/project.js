@@ -14,8 +14,15 @@ import { nowIso, today } from '../util/time.js'
 import { projectIdFor, slugify } from '../util/ids.js'
 import { ASSETS_DIR, loadPreset, playbookToText, projectsIndexPath, readPlaybookFile } from './registry.js'
 import { recordSystemArtifact } from './artifacts.js'
+import { normalizeListingStatus, normalizeTarget } from './subjects.js'
 
-export const PROJECT_SCHEMA_VERSION = 1
+/**
+ * v2 adds `entityId` / `identifiers[]` / independent `listingStatus` to targets.
+ * v1 projects are still readable and keep their legacy `co_<slug>` subject keys;
+ * migrating them is `migrate.js`'s job and must not re-key existing artifacts.
+ */
+export const PROJECT_SCHEMA_VERSION = 2
+export const SUPPORTED_PROJECT_SCHEMA_VERSIONS = Object.freeze([1, 2])
 
 export function projectFile(root) {
   return join(root, 'project.json')
@@ -25,31 +32,44 @@ export function playbookFile(root) {
   return join(root, 'playbook.yaml')
 }
 
-/** Normalize targets from tool/UI input. */
+/**
+ * Normalize targets from tool/UI input.
+ *
+ * Identity rules (review B1/B2):
+ *  - a legacy `code` is kept as a display mirror only; it never implies `listed`
+ *    and never becomes a typed identifier by guesswork;
+ *  - `identifiers[]` are typed explicitly (`scheme`/`value`/...);
+ *  - dedupe is by `entityId`, so two same-name targets with different verified
+ *    identifiers are kept instead of being silently dropped.
+ */
 export function normalizeTargets(input = {}) {
   const candidates = []
   if (Array.isArray(input.targets)) candidates.push(...input.targets)
   if (Array.isArray(input.target)) candidates.push(...input.target)
   if (typeof input.target === 'string' && input.target.trim()) candidates.push({ name: input.target.trim() })
   if (typeof input.name === 'string' && candidates.length === 0) candidates.push({ name: input.name })
-  if (typeof input.code === 'string' && candidates.length === 1) candidates[0].code = input.code
+  const single = candidates.length === 1
+  const inputCode = typeof input.code === 'string' ? input.code.trim() : ''
+  const inputIdentifiers = single && Array.isArray(input.identifiers) ? input.identifiers : []
+  const inputListingStatus = single ? input.listingStatus : undefined
   const out = []
   const seen = new Set()
   for (const item of candidates) {
-    const target = typeof item === 'string' ? { name: item } : item
-    if (!isPlainObject(target) || !target.name) continue
-    const key = String(target.name).trim().toLowerCase()
-    if (!key || seen.has(key)) continue
-    seen.add(key)
-    const normalized = {
-      name: String(target.name).trim(),
-      type: target.type ?? 'corporate',
-      jurisdiction: target.jurisdiction ?? input.jurisdiction ?? 'CN',
-      status: target.status ?? 'target',
+    const source = typeof item === 'string' ? { name: item } : { ...item }
+    if (!isPlainObject(source) || !source.name) continue
+    // Top-level `code`/`identifiers` only apply unambiguously to one target.
+    if (single && inputCode && !source.code) source.code = inputCode
+    if (single && inputIdentifiers.length > 0 && (!Array.isArray(source.identifiers) || source.identifiers.length === 0)) {
+      source.identifiers = inputIdentifiers
     }
-    if (target.code) normalized.code = String(target.code).trim()
-    if (target.market) normalized.market = String(target.market).trim()
-    out.push(normalized)
+    const target = normalizeTarget(source, {
+      jurisdiction: input.jurisdiction,
+      listingStatus: source.listingStatus ?? inputListingStatus,
+    })
+    if (!target) continue
+    if (seen.has(target.entityId)) continue
+    seen.add(target.entityId)
+    out.push(target)
   }
   if (out.length === 0) {
     throw new EquityError('missing_target', '至少需要一个调查目标（公司名称）')
@@ -66,7 +86,9 @@ function defaultEngagement(input = {}, target) {
     currency: input.currency ?? 'CNY',
     materiality: input.materiality ?? '以影响合作判断的事项为 material；其余为 attention',
     targetType: input.targetType ?? target.type ?? 'corporate',
-    listingStatus: input.listingStatus ?? (target.code ? 'listed' : 'unknown'),
+    // Listing status is an independent, evidence-backed field. The default is
+    // `unknown`: having a code (stock code *or* USCC) must never imply `listed`.
+    listingStatus: normalizeListingStatus(input.listingStatus ?? target.listingStatus),
     jurisdiction: input.jurisdiction ?? target.jurisdiction ?? 'CN',
     consolidationPerimeter: input.consolidationPerimeter ?? '以公告/工商口径为准，未特别说明按合并口径',
     accountingStandard: input.accountingStandard ?? 'CAS',
@@ -241,10 +263,11 @@ export async function openProject(rootInput) {
   const root = resolve(rootInput)
   const project = await readJson(projectFile(root), null)
   if (!project) throw new EquityError('not_a_project', `不是有效项目（缺 project.json）：${root}`, { root })
-  if (project.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+  const version = Number(project.schemaVersion)
+  if (!SUPPORTED_PROJECT_SCHEMA_VERSIONS.includes(version)) {
     throw new EquityError('schema_version', `项目 schemaVersion ${project.schemaVersion} 不受支持`, {
       root,
-      expected: PROJECT_SCHEMA_VERSION,
+      expected: SUPPORTED_PROJECT_SCHEMA_VERSIONS,
     })
   }
   const playbook = await readPlaybookFile(playbookFile(root))

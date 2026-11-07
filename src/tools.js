@@ -54,7 +54,28 @@ export function registerTools({ ctx, service }) {
       properties: {
         action: { type: 'string', enum: ['create', 'open', 'status', 'list', 'archive', 'migrate'], description: '动作' },
         target: { type: 'string', description: '目标公司名称；create 时必填（或用 targets）' },
-        code: { type: 'string', description: '证券代码/统一社会信用代码' },
+        code: { type: 'string', description: '统一社会信用代码/注册号/证券代码（只作标识符，不推断上市状态）' },
+        identifiers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {
+              scheme: { type: 'string' },
+              value: { type: 'string' },
+              issuer: { type: 'string' },
+              jurisdiction: { type: 'string' },
+              verificationStatus: { type: 'string' },
+            },
+            required: ['value'],
+          },
+          description: '类型化标识符（scheme/value/issuer/jurisdiction/verificationStatus）',
+        },
+        listingStatus: {
+          type: 'string',
+          enum: ['unknown', 'unlisted', 'ipo_applied', 'listed', 'suspended', 'delisted', 'not_applicable'],
+          description: '上市状态；默认 unknown，不得由代码推断',
+        },
         targets: { type: 'array', items: { type: 'object', additionalProperties: true }, description: '多个目标公司' },
         root: { type: 'string', description: '项目目录绝对路径；不填则放到 workspace/equity-projects/<slug>' },
         projectId: { type: 'string', description: '项目 id 或项目目录' },
@@ -75,6 +96,8 @@ export function registerTools({ ctx, service }) {
           target: args.target,
           targets: args.targets,
           code: args.code,
+          identifiers: args.identifiers,
+          listingStatus: args.listingStatus,
           root: args.root,
           preset: args.preset ?? 'standard',
           asOf: args.asOf,
@@ -158,14 +181,25 @@ export function registerTools({ ctx, service }) {
           : (await service.state(id)).latestRun
         if (!run) return { summary: '还没有运行记录' }
         const units = Array.isArray(run.units) ? run.units : Object.values(run.units ?? {})
-        const unitStatuses = Object.fromEntries(units.map((unit) => [unit.unitId, {
+        const unitDetails = units.map((unit) => ({
+          unitId: unit.unitId,
+          instanceId: unit.instanceId ?? null,
           moduleId: unit.moduleId,
           subjectId: unit.subjectId,
           status: unit.status,
           error: unit.error ?? null,
+          attempts: unit.attempts,
+          artifactIds: unit.artifactIds,
+          inputPinsHash: unit.inputPinsHash ?? null,
+        }))
+        const unitStatuses = Object.fromEntries(unitDetails.map((unit) => [unit.unitId, {
+          moduleId: unit.moduleId,
+          subjectId: unit.subjectId,
+          status: unit.status,
+          error: unit.error,
         }]))
-        const detail = units.map((unit) => `${unit.moduleId}=${unit.status}${unit.error ? `(${unit.error})` : ''}`).join('，')
-        return { ...run, unitStatuses, summary: `运行 ${run.runId}：${run.status}${detail ? `；${detail}` : ''}` }
+        const detail = unitDetails.map((unit) => `${unit.moduleId}=${unit.status}${unit.error ? `(${unit.error})` : ''}`).join('，')
+        return { ...run, unitDetails, unitStatuses, summary: `运行 ${run.runId}：${run.status}${detail ? `；${detail}` : ''}` }
       }
       if (args.action === 'pause') return { ...service.pause(args.runId), summary: `已请求暂停 ${args.runId}` }
       if (args.action === 'cancel') return { ...service.cancel(args.runId), summary: `已请求取消 ${args.runId}` }
@@ -196,7 +230,7 @@ export function registerTools({ ctx, service }) {
 
   disposers.push(ctx.tools.register(tool(
     'equity_record',
-    '底稿/证据写入：kind=artifact 写入类型化底稿（需 type、subjectId、data，可选 claims/evidence）；kind=evidence 只写证据。证据写入口唯一。',
+    '底稿/证据写入：kind=artifact 写入类型化底稿（需 type、subjectId、data，可选 claims/evidence）；kind=evidence 只写证据。Agent 写入固定为 draft/agent，不能自报 verified/human。',
     {
       properties: {
         kind: { type: 'string', enum: ['artifact', 'evidence'], description: '写入类型' },
@@ -210,10 +244,10 @@ export function registerTools({ ctx, service }) {
         claims: { type: 'array', items: { type: 'object', additionalProperties: true } },
         evidence: { description: '证据对象或数组' },
         derivedFrom: { type: 'array', items: { type: 'object', additionalProperties: true } },
-        status: { type: 'string', enum: ['draft', 'verified', 'rejected'] },
         asOf: { type: 'string' },
         moduleId: { type: 'string' },
-        actor: { type: 'string', enum: ['agent', 'human', 'import', 'system'] },
+        expectedRev: { type: 'integer', description: 'CAS：当前 revision（>=0）；不匹配则 revision_conflict' },
+        requestId: { type: 'string', description: '幂等键：同一 requestId 重放返回既有 revision' },
       },
       required: ['kind'],
     },
@@ -230,14 +264,13 @@ export function registerTools({ ctx, service }) {
 
   disposers.push(ctx.tools.register(tool(
     'equity_review',
-    '审核与裁决：list 列议题，propose 提议复核（Agent 可用），decide 只能由用户执行。',
+    '审核与复核：list 列议题，propose 提议复核。裁决/签发（decide/signoff）是用户专属动作，工具层不暴露。',
     {
       properties: {
-        action: { type: 'string', enum: ['list', 'propose', 'decide'], description: '动作' },
+        action: { type: 'string', enum: ['list', 'propose'], description: '动作' },
         projectId: { type: 'string' },
         root: { type: 'string' },
         issueId: { type: 'string' },
-        decision: { type: 'string', enum: ['accept', 'dismiss', 'defer', 'waive', 'reject'] },
         reason: { type: 'string' },
         title: { type: 'string' },
         detail: { type: 'string' },
@@ -248,14 +281,18 @@ export function registerTools({ ctx, service }) {
       const id = requireProjectId(args)
       if (args.action === 'list') return { issues: await service.issues(id) }
       if (args.action === 'propose') return service.proposeReview(id, args)
-      if (args.action === 'decide') return service.decideIssue(id, args.issueId, args.decision, { actor: 'agent', reason: args.reason })
+      if (args.action === 'decide') {
+        // Kept as an explicit deny (not a supported action) so a schema
+        // bypass cannot turn into an agent-side decision.
+        throw new EquityError('user_only', 'decide/signoff 是用户专属动作；Agent 只能 proposeReview')
+      }
       throw new EquityError('bad_action', `不支持的 action：${args.action}`)
     },
   )))
 
   disposers.push(ctx.tools.register(tool(
     'equity_deliver',
-    '交付：build 生成摘要+综合工作簿+7+N+底稿包+QA；verify 重新体检；present 返回文件清单给父 Agent 调用 present 工具。',
+    '交付：build 生成摘要+综合工作簿+7+N+底稿包+QA；verify 只对现有包重新体检（不重建）；present 返回文件清单给父 Agent 调用 present 工具。',
     {
       properties: {
         action: { type: 'string', enum: ['build', 'verify', 'present'], description: '动作' },
@@ -267,7 +304,15 @@ export function registerTools({ ctx, service }) {
       required: ['action'],
     },
     async (args) => {
-      const result = await service.deliver(requireProjectId(args), args.action, args)
+      const id = requireProjectId(args)
+      if (args.action === 'verify') {
+        const result = await service.verifyDelivery(id, args)
+        return {
+          ...result,
+          summary: `交付体检${result.ok ? '通过' : '未通过'}：${result.qa.blocking.length} 个阻断项`,
+        }
+      }
+      const result = await service.deliver(id, args.action, args)
       return { ...result, summary: args.action === 'present' ? `可交付文件 ${result.files.length} 个：${result.outDir}` : `交付构建 ${result.ok ? '通过' : '未通过'}：${result.outDir}` }
     },
   )))

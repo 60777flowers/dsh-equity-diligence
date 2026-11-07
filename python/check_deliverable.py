@@ -220,6 +220,24 @@ def cell_text(cell: Any) -> str:
     return str(value).strip()
 
 
+PLACEHOLDERS = {"", EMPTY, "未提供", "—", "-"}
+
+
+def is_placeholder_text(text: Any) -> bool:
+    """空值/占位文案：不得作为业务事实，也不得标成 found。"""
+    return str(text if text is not None else "").strip() in PLACEHOLDERS
+
+
+def safe_path_segment(value: Any) -> str:
+    """与 JS safeSegment 对齐的路径片段（仅用于核对 workpaper 路径）。"""
+    text = str(value or "").strip()
+    if text in ("", ".", ".."):
+        return "_"
+    text = re.sub(r'[\\/:*?"<>|]', "_", text)
+    text = re.sub(r"\s+", "_", text)
+    return text[:96] or "_"
+
+
 def fill_rgb(cell: Any) -> str | None:
     """返回填充色 6 位 HEX（大写）；非实心底或取不到 RGB 时返回 None。"""
     fill = cell.fill
@@ -256,7 +274,7 @@ def is_green_expected(header: str, text: str) -> bool:
 def classify_assessment(text: str) -> str:
     """把「投资合作评估」归类为 suitable / not_suitable / pending / missing / unknown。"""
     normalized = normalize_rule_text(text)
-    if not normalized or normalized == EMPTY:
+    if not normalized or is_placeholder_text(text) or normalized == EMPTY:
         return "missing"
     for word in ASSESSMENT_NEGATIVE:
         if normalize_rule_text(word) in normalized:
@@ -324,6 +342,10 @@ def load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
+def as_dict(value: Any) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -342,9 +364,9 @@ def data_rows(worksheet: Any, header_row: int = 2) -> Iterable[int]:
 
 
 def is_placeholder_row(worksheet: Any, row_index: int, ncols: int) -> bool:
-    """整行都是「未提供/not_reviewed」→ 占位行（空表）。"""
+    """整行都是空值/占位文案 → 占位行（空表）。"""
     for column in range(1, ncols + 1):
-        if cell_text(worksheet.cell(row=row_index, column=column)) != EMPTY:
+        if not is_placeholder_text(cell_text(worksheet.cell(row=row_index, column=column))):
             return False
     return True
 
@@ -610,26 +632,65 @@ def check_blanks_and_formulas(report: Report, workbook: Any, label: str) -> None
 
 
 def check_six_states(report: Report, workbook02: Any) -> None:
+    """02–05 的状态列必须是 8 个取值；found 必须有值和 claim/证据引用。"""
     invalid: list[str] = []
+    empty_found: list[str] = []
+    found_no_evidence: list[str] = []
+    fabricated_none: list[str] = []
+    risk_labels = {"诉讼", "被执行", "失信", "股权冻结", "行政处罚", "管制清单"}
+    none_tokens = {"0", "无", "没有", "未发现", "无记录"}
     total = 0
     for name in ("02_主体与股权", "03_业务与技术", "04_财务", "05_风险"):
         if name not in workbook02.sheetnames:
             continue
         worksheet = workbook02[name]
         for row in data_rows(worksheet):
-            state = cell_text(worksheet.cell(row=row, column=3))
             total += 1
-            if state == EMPTY:
-                continue
+            label = cell_text(worksheet.cell(row=row, column=1))
+            value = cell_text(worksheet.cell(row=row, column=2))
+            state = cell_text(worksheet.cell(row=row, column=3))
+            evidence = cell_text(worksheet.cell(row=row, column=4))
             if state not in SIX_STATES:
-                invalid.append(f"{name}!C{row}={state}")
+                invalid.append(f"{name}!C{row}={state or '<空>'}")
+                continue
+            if state == "found":
+                if is_placeholder_text(value):
+                    empty_found.append(f"{name}!B{row}「{value or '<空>'}」")
+                if is_placeholder_text(evidence):
+                    found_no_evidence.append(f"{name}!D{row}")
+            if name == "05_风险" and label in risk_labels and state != "found" and value in none_tokens:
+                fabricated_none.append(f"{name}!B{row}「{value}」")
     if invalid:
         report.block(
             "six_states",
-            f"02 状态列有 {len(invalid)} 个取值不在状态字段口径内（应为 8 个取值之一）",
+            f"02 状态列有 {len(invalid)} 个取值不在状态字段口径内（应为 8 个取值之一，禁止占位文案）",
             FILE_COMPREHENSIVE,
             len(invalid),
             invalid,
+        )
+    if empty_found:
+        report.block(
+            "empty_found",
+            f"02–05 有 {len(empty_found)} 行值为空/占位却标 found",
+            FILE_COMPREHENSIVE,
+            len(empty_found),
+            empty_found,
+        )
+    if found_no_evidence:
+        report.block(
+            "found_without_evidence",
+            f"02–05 有 {len(found_no_evidence)} 行标 found 但证据列为空/占位",
+            FILE_COMPREHENSIVE,
+            len(found_no_evidence),
+            found_no_evidence,
+        )
+    if fabricated_none:
+        report.block(
+            "fabricated_none",
+            f"05_风险 有 {len(fabricated_none)} 行把空数组/未查写成「无/0」",
+            FILE_COMPREHENSIVE,
+            len(fabricated_none),
+            fabricated_none,
         )
     report.stats["sixStateRows"] = total
 
@@ -655,7 +716,7 @@ def check_three_sheet_semantics(report: Report, workbook03: Any) -> None:
             for column, header in RATIO_COLUMNS.items():
                 cell = worksheet.cell(row=row, column=column)
                 value = cell.value
-                if value is None or (isinstance(value, str) and value.strip() == EMPTY):
+                if value is None or is_placeholder_text(cell_text(cell)):
                     continue
                 ok, numbers = parse_ratio(value)
                 if not ok:
@@ -665,7 +726,7 @@ def check_three_sheet_semantics(report: Report, workbook03: Any) -> None:
 
             cell = worksheet.cell(row=row, column=COL_SHAREHOLDER_COUNT)
             value = cell.value
-            if value is not None and not (isinstance(value, str) and value.strip() == EMPTY):
+            if value is not None and not is_placeholder_text(cell_text(cell)):
                 if isinstance(value, bool):
                     count_bad.append(f"{name}!{cell.coordinate}")
                 elif isinstance(value, int):
@@ -677,7 +738,7 @@ def check_three_sheet_semantics(report: Report, workbook03: Any) -> None:
 
             cell = worksheet.cell(row=row, column=COL_TOTAL_FUNDING)
             value = cell.value
-            if value is not None and not (isinstance(value, str) and value.strip() == EMPTY):
+            if value is not None and not is_placeholder_text(cell_text(cell)):
                 if isinstance(value, (int, float)) and not isinstance(value, bool):
                     number_format = str(cell.number_format or "")
                     if not any(marker in number_format for marker in ("¥", "$", "€", "£", "元")):
@@ -690,7 +751,7 @@ def check_three_sheet_semantics(report: Report, workbook03: Any) -> None:
             cell = worksheet.cell(row=row, column=COL_TIME_NOTE)
             value = cell.value
             text = cell_text(cell)
-            if text and text != EMPTY and not isinstance(value, (date, datetime)):
+            if text and not is_placeholder_text(text) and not isinstance(value, (date, datetime)):
                 if re.fullmatch(r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}", text):
                     date_text.append(f"{name}!{cell.coordinate}「{text}」")
 
@@ -934,8 +995,14 @@ def check_lineage(report: Report, data: dict, workbook02: Any) -> None:
 
 def check_input_qa(report: Report, data: dict, workbook02: Any) -> None:
     qa = data.get("qa") if isinstance(data.get("qa"), dict) else {}
-    blocking = qa.get("blocking") if isinstance(qa.get("blocking"), list) else []
-    warnings = qa.get("warnings") if isinstance(qa.get("warnings"), list) else []
+    raw_blocking = qa.get("blocking")
+    raw_warnings = qa.get("warnings")
+    if raw_blocking is not None and not isinstance(raw_blocking, list):
+        report.block("qa_shape", "input.qa.blocking 不是数组（应为 [] 形式）", "input.json")
+    if raw_warnings is not None and not isinstance(raw_warnings, list):
+        report.block("qa_shape", "input.qa.warnings 不是数组", "input.json")
+    blocking = raw_blocking if isinstance(raw_blocking, list) else []
+    warnings = raw_warnings if isinstance(raw_warnings, list) else []
     if blocking:
         report.block(
             "input_qa_blocking",
@@ -963,19 +1030,195 @@ def check_input_qa(report: Report, data: dict, workbook02: Any) -> None:
             report.warn("summary_count", f"01_执行摘要 {count} 条，契约 §11 要求 5–10 条", FILE_COMPREHENSIVE)
 
 
-def check_workbook_health(report: Report, workbook02: Any) -> None:
+def check_workbook_health(report: Report, workbook02: Any, manifest: dict | None = None) -> None:
     if "10_体检单" not in workbook02.sheetnames:
         return
     worksheet = workbook02["10_体检单"]
-    items = {cell_text(worksheet.cell(row=row, column=1)) for row in data_rows(worksheet)}
-    if "综合结论" not in items:
-        report.warn("checkup_row", "10_体检单 缺少「综合结论」行", FILE_COMPREHENSIVE)
+    rows: dict[str, tuple[str, str]] = {}
     for row in data_rows(worksheet):
-        if cell_text(worksheet.cell(row=row, column=1)) == "综合结论":
-            result = cell_text(worksheet.cell(row=row, column=2))
-            report.stats["checkupConclusion"] = result
-            if result not in ("通过", "不通过"):
-                report.warn("checkup_row", f"10_体检单 综合结论取值异常：{result}", FILE_COMPREHENSIVE)
+        label = cell_text(worksheet.cell(row=row, column=1))
+        rows[label] = (cell_text(worksheet.cell(row=row, column=2)), cell_text(worksheet.cell(row=row, column=3)))
+    if "综合结论" not in rows:
+        report.warn("checkup_row", "10_体检单 缺少「综合结论」行", FILE_COMPREHENSIVE)
+    else:
+        result = rows["综合结论"][0]
+        report.stats["checkupConclusion"] = result
+        if result not in ("通过", "不通过"):
+            report.warn("checkup_row", f"10_体检单 综合结论取值异常：{result}", FILE_COMPREHENSIVE)
+
+    qa = manifest.get("qa") if isinstance(manifest, dict) else None
+    if not isinstance(qa, dict):
+        return
+    expected_passed = qa.get("passed") is True
+    expected_blocking = len(qa.get("blocking")) if isinstance(qa.get("blocking"), list) else None
+    expected_warnings = len(qa.get("warnings")) if isinstance(qa.get("warnings"), list) else None
+    if expected_blocking is None:
+        report.block("qa_shape", "manifest.qa.blocking 不是数组", "manifest.json")
+    if expected_warnings is None:
+        report.block("qa_shape", "manifest.qa.warnings 不是数组", "manifest.json")
+
+    conclusion = rows.get("综合结论", ("", ""))[0]
+    want = "通过" if expected_passed else "不通过"
+    if conclusion and conclusion != want:
+        report.block(
+            "checkup_qa_conclusion",
+            f"10_体检单 综合结论「{conclusion}」与 manifest.qa.passed={expected_passed} 不一致",
+            FILE_COMPREHENSIVE,
+        )
+    if expected_blocking is not None:
+        blocking_text = rows.get("QA 阻断项", ("", ""))[0]
+        if expected_blocking == 0:
+            if blocking_text not in ("无", ""):
+                report.block(
+                    "checkup_qa_blocking",
+                    f"manifest.qa.blocking 为空但 10_体检单 写「{blocking_text}」",
+                    FILE_COMPREHENSIVE,
+                )
+        else:
+            match = re.search(r"(\d+)", blocking_text)
+            if not match or int(match.group(1)) != expected_blocking:
+                report.block(
+                    "checkup_qa_blocking",
+                    f"10_体检单 阻断项「{blocking_text}」与 manifest.qa.blocking 长度 {expected_blocking} 不一致",
+                    FILE_COMPREHENSIVE,
+                )
+    if expected_warnings is not None:
+        warning_text = rows.get("QA 非阻断项", ("", ""))[0]
+        match = re.search(r"(\d+)", warning_text)
+        if not match or int(match.group(1)) != expected_warnings:
+            report.block(
+                "checkup_qa_warning",
+                f"10_体检单 非阻断项「{warning_text}」与 manifest.qa.warnings 长度 {expected_warnings} 不一致",
+                FILE_COMPREHENSIVE,
+            )
+
+
+def check_workpapers(report: Report, delivery_dir: Path, manifest: dict | None) -> None:
+    """C3：一份底稿一份 workpaper，manifest / 索引 / 目录一一对应。"""
+    wp_root = delivery_dir / "04_工作底稿"
+    if not wp_root.is_dir():
+        report.warn("workpaper_dir", "缺少 04_工作底稿 目录（非 JS 构建或旧包）", str(wp_root))
+        return
+    actual = sorted(
+        path.relative_to(delivery_dir).as_posix()
+        for path in wp_root.rglob("workpaper.md")
+        if path.is_file()
+    )
+    report.stats["workpapers"] = len(actual)
+    index_path = wp_root / "00_索引.md"
+    if not index_path.is_file():
+        report.block("workpaper_index", "缺少 04_工作底稿/00_索引.md", str(wp_root))
+        return
+    index_text = index_path.read_text(encoding="utf-8", errors="replace")
+
+    manifest_artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else None
+    expected: list[str] = []
+    if isinstance(manifest_artifacts, list) and manifest_artifacts:
+        for artifact in manifest_artifacts:
+            artifact = as_dict(artifact)
+            expected.append(
+                "04_工作底稿/"
+                f"{safe_path_segment(artifact.get('type'))}/"
+                f"{safe_path_segment(artifact.get('subjectId'))}/"
+                f"{safe_path_segment(artifact.get('partitionKey'))}/workpaper.md"
+            )
+            artifact_id = str(artifact.get("id") or "")
+            if artifact_id and artifact_id not in index_text:
+                report.block(
+                    "workpaper_index",
+                    f"04_工作底稿/00_索引.md 未列出 artifactId {artifact_id}",
+                    str(index_path),
+                )
+        counts = manifest.get("counts") if isinstance(manifest.get("counts"), dict) else {}
+        if counts.get("artifacts") not in (None, len(manifest_artifacts)):
+            report.block(
+                "manifest_counts",
+                f"manifest.counts.artifacts={counts.get('artifacts')} 与 artifacts 数 {len(manifest_artifacts)} 不一致",
+                "manifest.json",
+            )
+        if counts.get("workpapers") not in (None, len(actual)):
+            report.block(
+                "manifest_counts",
+                f"manifest.counts.workpapers={counts.get('workpapers')} 与实际 workpaper 数 {len(actual)} 不一致",
+                "manifest.json",
+            )
+    else:
+        # Fall back to the index table when no manifest exists.
+        for line in index_text.splitlines():
+            if not line.startswith("|") or line.startswith("|---"):
+                continue
+            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            if len(cells) < 10 or cells[1] == "artifactId":
+                continue
+            expected.append(
+                "04_工作底稿/"
+                f"{safe_path_segment(cells[2])}/{safe_path_segment(cells[3])}/{safe_path_segment(cells[4])}/workpaper.md"
+            )
+
+    missing = [path for path in expected if path not in actual]
+    orphans = [path for path in actual if path not in expected]
+    if missing:
+        report.block(
+            "workpaper_missing",
+            f"{len(missing)} 份底稿缺少 workpaper",
+            str(wp_root),
+            len(missing),
+            missing,
+        )
+    if orphans:
+        report.block(
+            "workpaper_orphan",
+            f"{len(orphans)} 份 workpaper 没有对应底稿",
+            str(wp_root),
+            len(orphans),
+            orphans,
+        )
+    if len(expected) != len(actual):
+        report.block(
+            "workpaper_count",
+            f"workpaper 数 {len(actual)} 与底稿数 {len(expected)} 不一致",
+            str(wp_root),
+        )
+
+
+def check_manifest(report: Report, delivery_dir: Path, manifest: dict | None) -> None:
+    """manifest 只列真实存在且 hash 一致的交付物，且 QA 形状为数组。"""
+    if not isinstance(manifest, dict):
+        path = delivery_dir / "manifest.json"
+        if path.is_file():
+            report.block("manifest_unreadable", "manifest.json 无法解析", str(path))
+        return
+    files = manifest.get("files")
+    if not isinstance(files, list):
+        report.block("manifest_files", "manifest.files 不是数组", "manifest.json")
+        return
+    missing: list[str] = []
+    bad_hash: list[str] = []
+    for item in files:
+        item = as_dict(item)
+        relative = str(item.get("path") or "")
+        target = delivery_dir / relative
+        if not relative or not target.is_file():
+            missing.append(relative or "<empty>")
+            continue
+        expected_hash = str(item.get("sha256") or "").replace("sha256:", "")
+        if expected_hash and sha256_file(target) != expected_hash:
+            bad_hash.append(relative)
+    if missing:
+        report.block("manifest_missing_files", f"manifest 列了 {len(missing)} 个不存在的文件", "manifest.json",
+                     len(missing), missing)
+    if bad_hash:
+        report.block("manifest_hash_mismatch", f"manifest 有 {len(bad_hash)} 个文件 hash 与磁盘不一致",
+                     "manifest.json", len(bad_hash), bad_hash)
+    report.stats["manifestFiles"] = len(files)
+    qa = manifest.get("qa")
+    if not isinstance(qa, dict):
+        report.block("manifest_qa_missing", "manifest.qa 缺失", "manifest.json")
+    else:
+        if not isinstance(qa.get("blocking"), list):
+            report.block("qa_shape", "manifest.qa.blocking 不是数组", "manifest.json")
+        if not isinstance(qa.get("warnings"), list):
+            report.block("qa_shape", "manifest.qa.warnings 不是数组", "manifest.json")
 
 
 # ================================================================ 主流程
@@ -1008,6 +1251,14 @@ def run_check(delivery_dir: Path, input_path: Path | None, map_path: Path | None
     else:
         report.warn("map_missing", f"缺少 {FILE_MAP}", str(path_map))
 
+    manifest_data = None
+    manifest_path = delivery_dir / "manifest.json"
+    if manifest_path.is_file():
+        try:
+            manifest_data = load_json(manifest_path)
+        except Exception as exc:
+            report.block("manifest_unreadable", f"manifest.json 无法解析：{exc}", str(manifest_path))
+
     check_comprehensive(report, workbook02)
     check_seven_n(report, workbook03)
     if map_data is not None:
@@ -1018,7 +1269,9 @@ def run_check(delivery_dir: Path, input_path: Path | None, map_path: Path | None
     check_three_sheet_semantics(report, workbook03)
     check_caliber_dates(report, workbook02)
     check_notes_sheet(report, workbook03)
-    check_workbook_health(report, workbook02)
+    check_workbook_health(report, workbook02, manifest_data)
+    check_workpapers(report, delivery_dir, manifest_data)
+    check_manifest(report, delivery_dir, manifest_data)
 
     data = None
     if input_path is not None:

@@ -271,6 +271,41 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
       return error.details ? `${error.message}（${JSON.stringify(error.details).slice(0, 240)}）` : error.message
     }
 
+    // QA results exist in two shapes: `{blocking:[{id,message}],warnings:[...]}`
+    // from buildDeliverable and `{blocking:2,warnings:1}` as persisted by
+    // service.js. Normalize both to arrays so DeliveryView never calls
+    // `.map`/`.slice` on a number (the old crash that blanked the whole panel).
+    function toQaItems(value) {
+      if (Array.isArray(value)) {
+        return value.map((item, index) => (item && typeof item === 'object')
+          ? item
+          : { id: `#${index + 1}`, message: String(item ?? '') })
+      }
+      if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        // Keep the list bounded; the true count is reported separately.
+        const count = Math.min(Math.trunc(value), 50)
+        return Array.from({ length: count }, (_, index) => ({
+          id: `#${index + 1}`,
+          message: '服务端仅返回计数，未附明细',
+          countOnly: true,
+        }))
+      }
+      return []
+    }
+    function qaSummary(qa) {
+      if (!qa || typeof qa !== 'object' || Array.isArray(qa)) return null
+      const blocking = toQaItems(qa.blocking)
+      const warnings = toQaItems(qa.warnings)
+      const count = (raw, list) => (typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, Math.trunc(raw)) : list.length)
+      return {
+        passed: qa.passed === true,
+        blocking,
+        warnings,
+        blockingCount: count(qa.blocking, blocking),
+        warningCount: count(qa.warnings, warnings),
+      }
+    }
+
     async function api(path, options = {}) {
       const response = await fetch(path, {
         credentials: 'same-origin',
@@ -347,6 +382,44 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
     }
 
     function StateBadge({ value }) { return h(Badge, { status: value, text: label(value) }) }
+
+    // A payload with an unexpected shape must not blank the whole workbench.
+    // Renders a recoverable card instead of throwing through the host slot.
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props)
+        this.state = { error: null }
+        this.retry = this.retry.bind(this)
+      }
+      static getDerivedStateFromError(error) {
+        return { error }
+      }
+      componentDidCatch(error, info) {
+        console.error('[equity] panel render failed:', error, info?.componentStack)
+      }
+      retry() {
+        this.setState({ error: null })
+      }
+      renderFallback() {
+        const error = this.state.error
+        return h('div', { className: 'eq-banner error', role: 'alert' },
+          h(Icon, { name: 'x', size: 14 }),
+          h('div', { style: { flex: 1, minWidth: 0 } },
+            h('div', { className: 'eq-flag-title' }, '这一页渲染失败（数据形状异常）'),
+            h('div', { className: 'eq-sub' }, '其余标签页、项目列表和已保存底稿不受影响；可重试，或刷新页面后重试。'),
+            h('div', { className: 'eq-sub eq-mono' }, String(error?.message ?? error ?? '').slice(0, 240)),
+            h('div', { style: { marginTop: 8 } },
+              h('button', { className: 'eq-btn sm', onClick: this.retry }, '重试渲染'))))
+      }
+      render() {
+        if (!this.state.error) return this.props.children
+        const fallback = this.renderFallback()
+        if (!this.props.standalone) return fallback
+        return h('div', { className: 'eq-root' },
+          h('style', null, CSS),
+          h('div', { className: 'eq-scroll' }, fallback))
+      }
+    }
 
     // ---------------------------------------------------------------------
     // Data hooks
@@ -931,7 +1004,7 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
       const deliverable = state?.deliverable
       const data = deliverable?.data
       const files = data?.files ?? []
-      const qa = data?.qa ?? null
+      const qa = qaSummary(data?.qa)
       const [summary, setSummary] = useState(null)
       const [signoff, setSignoff] = useState({ preparedBy: 'equity-diligence', reviewedBy: '', approvedBy: '', note: '' })
       useEffect(() => {
@@ -971,10 +1044,10 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
         deliverable ? h('div', { className: 'eq-grid2' },
           h(Section, { title: '体检单', sub: qa?.passed ? '通过：可进入签发' : '存在阻断项' },
             qa ? h('div', null,
-              h('div', { className: `eq-banner ${qa.passed ? 'info' : 'error'}` }, h(Icon, { name: qa.passed ? 'check' : 'x', size: 14 }), h('div', null, qa.passed ? 'QA 通过' : `QA 阻断 ${qa.blocking?.length ?? 0} 项`, h('div', { className: 'eq-sub' }, `警告 ${qa.warnings?.length ?? 0} 项`))),
+              h('div', { className: `eq-banner ${qa.passed ? 'info' : 'error'}` }, h(Icon, { name: qa.passed ? 'check' : 'x', size: 14 }), h('div', null, qa.passed ? 'QA 通过' : `QA 阻断 ${qa.blockingCount} 项`, h('div', { className: 'eq-sub' }, `警告 ${qa.warningCount} 项`))),
               h('div', { className: 'eq-list' },
-                (qa.blocking ?? []).map((item, index) => h('div', { key: `b${index}`, className: 'eq-flag material' }, h('div', null, h('div', { className: 'eq-flag-title' }, item.id), h('div', { className: 'eq-flag-desc' }, item.message)))),
-                (qa.warnings ?? []).slice(0, 8).map((item, index) => h('div', { key: `w${index}`, className: 'eq-flag' }, h('div', null, h('div', { className: 'eq-flag-title' }, item.id), h('div', { className: 'eq-flag-desc' }, item.message))))) ) : h('div', { className: 'eq-sub' }, '尚无体检结果'),
+                qa.blocking.map((item, index) => h('div', { key: `b${index}`, className: 'eq-flag material' }, h('div', null, h('div', { className: 'eq-flag-title' }, item.id), h('div', { className: 'eq-flag-desc' }, item.message)))),
+                qa.warnings.slice(0, 8).map((item, index) => h('div', { key: `w${index}`, className: 'eq-flag' }, h('div', null, h('div', { className: 'eq-flag-title' }, item.id), h('div', { className: 'eq-flag-desc' }, item.message))))) ) : h('div', { className: 'eq-sub' }, '尚无体检结果'),
             h('div', { className: 'eq-sep' }),
             h('div', { className: 'eq-sub' }, '签发'),
             h('div', { className: 'eq-form' },
@@ -999,7 +1072,7 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
     // Create project
     // ---------------------------------------------------------------------
     function CreateProject({ onCreated, busy, toast }) {
-      const [form, setForm] = useState({ target: '', code: '', clientName: '', preset: 'standard', asOf: new Date().toISOString().slice(0, 10), root: '' })
+      const [form, setForm] = useState({ target: '', code: '', listingStatus: 'unknown', clientName: '', preset: 'standard', asOf: new Date().toISOString().slice(0, 10), root: '' })
       const [saving, setSaving] = useState(false)
       async function submit(event) {
         event.preventDefault()
@@ -1019,7 +1092,15 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
           h('form', { onSubmit: submit },
             h('div', { className: 'eq-form' },
               h('div', { className: 'eq-field' }, h('label', null, '目标公司 *'), h('input', { className: 'eq-input', value: form.target, onChange: (event) => setForm({ ...form, target: event.target.value }), placeholder: '例如：中际旭创' })),
-              h('div', { className: 'eq-field' }, h('label', null, '证券代码/信用代码'), h('input', { className: 'eq-input', value: form.code, onChange: (event) => setForm({ ...form, code: event.target.value }), placeholder: '300308' })),
+              h('div', { className: 'eq-field' }, h('label', null, '统一社会信用代码 / 注册号 / 证券代码'), h('input', { className: 'eq-input', value: form.code, onChange: (event) => setForm({ ...form, code: event.target.value }), placeholder: '9132… 或 300308；只填名称也可以' })),
+              h('div', { className: 'eq-field' }, h('label', null, '上市状态'), h('select', { className: 'eq-select', value: form.listingStatus, onChange: (event) => setForm({ ...form, listingStatus: event.target.value }) },
+                h('option', { value: 'unknown' }, 'unknown · 未确认（默认）'),
+                h('option', { value: 'unlisted' }, 'unlisted · 未上市'),
+                h('option', { value: 'ipo_applied' }, 'ipo_applied · 已申报/在审'),
+                h('option', { value: 'listed' }, 'listed · 已上市'),
+                h('option', { value: 'suspended' }, 'suspended · 停牌'),
+                h('option', { value: 'delisted' }, 'delisted · 已退市'),
+                h('option', { value: 'not_applicable' }, 'not_applicable · 不适用'))),
               h('div', { className: 'eq-field' }, h('label', null, '委托方'), h('input', { className: 'eq-input', value: form.clientName, onChange: (event) => setForm({ ...form, clientName: event.target.value }) })),
               h('div', { className: 'eq-field' }, h('label', null, '截止日'), h('input', { className: 'eq-input', type: 'date', value: form.asOf, onChange: (event) => setForm({ ...form, asOf: event.target.value }) })),
               h('div', { className: 'eq-field' }, h('label', null, '预设'), h('select', { className: 'eq-select', value: form.preset, onChange: (event) => setForm({ ...form, preset: event.target.value }) },
@@ -1095,8 +1176,13 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
             setTab('runs')
             await refreshAll()
           } else if (name === 'build' || name === 'verify') {
-            const result = await api('/api/equity/deliver', { method: 'POST', body: JSON.stringify({ projectId: state.project.projectId, action: 'build' }) })
-            toast(result.result?.qa?.passed ? '交付体检通过' : `交付体检未通过：${result.result?.qa?.blocking?.[0]?.message ?? ''}`, !result.result?.qa?.passed)
+            const action = name === 'verify' ? 'verify' : 'build'
+            const result = await api('/api/equity/deliver', { method: 'POST', body: JSON.stringify({ projectId: state.project.projectId, action }) })
+            if (action === 'verify') {
+              toast(result.result?.qa?.passed === false ? '交付体检未通过' : '交付体检完成', result.result?.qa?.passed === false)
+            } else {
+              toast(result.result?.qa?.passed ? '交付体检通过' : `交付体检未通过：${result.result?.qa?.blocking?.[0]?.message ?? ''}`, !result.result?.qa?.passed)
+            }
             setTab('deliver')
             await refreshAll()
           } else if (name === 'present') {
@@ -1107,7 +1193,11 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
             setTab('runs')
           }
         } catch (error) {
-          toast(errorText(error), true)
+          if (name === 'verify' && error?.code === 'unsupported') {
+            toast('后端尚未提供独立体检（verify）；请先“构建交付包”，体检结果会随构建返回。', true)
+          } else {
+            toast(errorText(error), true)
+          }
         } finally {
           setBusy(false)
         }
@@ -1175,7 +1265,9 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
       if (state && tab === 'artifacts') content.push(h(ArtifactTable, { key: 'artifacts', state, onOpen: setArtifact }))
       if (state && tab === 'runs') content.push(h(RunsView, { key: 'runs', state, onAction: runAction, busy, toast }))
       if (state && tab === 'deliver') content.push(h(DeliveryView, { key: 'deliver', state, onAction: runAction, busy, toast }))
-      const main = h('main', { className: 'eq-main' }, tabbar, h('div', { className: 'eq-scroll' }, content))
+      const main = h('main', { className: 'eq-main' }, tabbar,
+        h('div', { className: 'eq-scroll' },
+          h(ErrorBoundary, { key: `${tab}:${projectId ?? 'none'}` }, content)))
 
       return h('div', { className: 'eq-root' },
         h('style', null, CSS),
@@ -1183,6 +1275,12 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
         h('div', { className: 'eq-body' }, rail, main),
         artifact ? h(ArtifactDrawer, { projectId, artifactId: artifact, onClose: () => setArtifact(null), toast }) : null,
         toastState ? h('div', { className: `eq-toast ${toastState.isError ? 'error' : ''}`, role: 'status' }, toastState.text) : null)
+    }
+
+    // Panel-level guard: a crash in the workbench renders a recoverable card
+    // instead of unmounting the host `main` slot content.
+    function EquityWorkbenchShell() {
+      return h(ErrorBoundary, { standalone: true }, h(EquityWorkbench))
     }
     // ---------------------------------------------------------------------
     // Sidebar icon + conversation card
@@ -1232,7 +1330,7 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
       inject: ['slots'],
       apply(ctx) {
         pluginCtx = ctx
-        ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL_ID }, EquityWorkbench))
+        ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL_ID }, EquityWorkbenchShell))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist',
           id: PANEL_ID,
@@ -1245,6 +1343,11 @@ body[data-ds-dark-theme] .eq-matrix th{background:rgba(189,215,238,.14);color:#c
           order: 30,
         }, EquityTurnTail))
       },
+      // Contract-test hooks, only when the test harness opts in. Production
+      // plugins export exactly {inject, apply}.
+      ...(typeof window !== 'undefined' && window.__DSH_EQUITY_TEST__ === true
+        ? { __test: { DeliveryView, ErrorBoundary, qaSummary, toQaItems } }
+        : {}),
     }
   },
 })

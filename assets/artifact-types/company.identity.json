@@ -403,11 +403,41 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
+        "entityId": {
+          "type": "string",
+          "description": "稳定内部主体 ID；与 roster target.entityId 对应"
+        },
+        "inputName": {
+          "type": "string",
+          "description": "本项目立项时输入的名称，用于回写匹配"
+        },
+        "entityKind": {
+          "type": "string",
+          "description": "operating_company / listed_issuer / pre_ipo_company / holding_company / subsidiary / partnership_fund / contractual_fund / corporate_fund / fund_manager / gp_entity / spv / branch ..."
+        },
+        "jurisdiction": {
+          "type": "string",
+          "description": "注册辖区（CN/HK/KY/BVI/SG ...）"
+        },
+        "listingStatus": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "unlisted",
+            "ipo_applied",
+            "listed",
+            "suspended",
+            "delisted",
+            "not_applicable"
+          ],
+          "description": "独立字段；不得由 code/identifiers 推断，未核实时为 unknown"
+        },
         "legalName": {
           "type": "string"
         },
         "code": {
-          "type": "string"
+          "type": "string",
+          "description": "遗留只读镜像；新数据请用 identifiers[]"
         },
         "aliases": {
           "type": "array",
@@ -472,13 +502,49 @@
             "type": "object",
             "additionalProperties": true,
             "properties": {
+              "scheme": {
+                "type": "string",
+                "description": "CN_USCC / CN_LEGACY_REG_NO / SECURITY_TICKER / HK_CR_NO / SG_UEN / US_STATE_FILE_NO / SEC_CIK / LEI / KY_NO / BVI_NO / AMAC_MANAGER_NO / AMAC_FUND_NO / INTERNAL_PROVISIONAL"
+              },
               "kind": {
-                "type": "string"
+                "type": "string",
+                "description": "遗留中文标签（统一社会信用代码等），读取时映射为 scheme"
               },
               "value": {
                 "type": "string"
               },
+              "issuer": {
+                "type": "string",
+                "description": "签发/登记机关"
+              },
               "jurisdiction": {
+                "type": "string"
+              },
+              "verificationStatus": {
+                "type": "string",
+                "enum": [
+                  "unverified",
+                  "partial",
+                  "verified",
+                  "unreachable",
+                  "conflict"
+                ]
+              },
+              "isPrimary": {
+                "type": "boolean"
+              },
+              "checksum": {
+                "type": "string",
+                "enum": [
+                  "valid",
+                  "invalid"
+                ],
+                "description": "USCC 校验位结果（可选；校验通过不等于已核验）"
+              },
+              "validFrom": {
+                "type": "string"
+              },
+              "validTo": {
                 "type": "string"
               }
             }

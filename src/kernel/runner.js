@@ -17,9 +17,14 @@ import {
 } from '../util/fs.js'
 import { nowIso } from '../util/time.js'
 import { subjectIdFor, unitIdFor } from '../util/ids.js'
+import { subjectIdForTarget } from './subjects.js'
+import { applyIdentityToRoster, ROSTER_RESOLUTION_PARTITION } from './entity-writeback.js'
+import { saveProject } from './project.js'
 import {
   artifactToOutput,
+  artifactVersionKey,
   listArtifacts,
+  listVerifiedArtifacts,
   readArtifact,
   recordArtifact,
   recordSystemArtifact,
@@ -36,13 +41,32 @@ export function runDir(root, runId) {
   return join(root, '.equity', 'runs', runId)
 }
 
-function unitKeyOf(unit) {
+function normalizeInputPins(inputPins) {
+  return (inputPins ?? [])
+    .map((pin) => ({
+      artifactId: pin?.artifactId ?? null,
+      type: pin?.type ?? null,
+      kind: pin?.kind ?? 'input',
+      revision: pin?.revision ?? null,
+      contentHash: pin?.contentHash ?? null,
+    }))
+    .sort((a, b) => `${a.type ?? ''}/${a.artifactId ?? ''}/${a.revision ?? ''}`.localeCompare(`${b.type ?? ''}/${b.artifactId ?? ''}/${b.revision ?? ''}`))
+}
+
+/**
+ * UnitKey = module instance + subject + partition + params + resolved input pins.
+ * The id is plan-time stable (`inputPins` is empty then); `executionKey` on the
+ * unit captures the actual pins so resume/retry decisions can detect upstream
+ * content changes instead of silently reusing stale outputs.
+ */
+export function unitKeyOf(unit, inputPins = unit?.inputPins ?? []) {
   return semanticHash({
     instanceId: unit.instanceId,
     moduleId: unit.moduleId,
     subjectId: unit.subjectId,
     partitionKey: unit.partitionKey,
     params: unit.params ?? {},
+    inputPins: normalizeInputPins(inputPins),
   })
 }
 
@@ -54,7 +78,7 @@ export function generateUnits({ plan, project }) {
       step.scope === 'project'
         ? [{ subjectId: 'project', name: project.name, target: null }]
         : (project.targets ?? []).map((target) => ({
-            subjectId: subjectIdFor('co', target.name),
+            subjectId: subjectIdForTarget(target, project),
             name: target.name,
             target,
           }))
@@ -67,9 +91,14 @@ export function generateUnits({ plan, project }) {
         scope: step.scope,
         subjectId: subject.subjectId,
         subjectName: subject.name,
+        target: subject.target ?? null,
         partitionKey: '_default',
         params: step.params ?? {},
+        inputPins: [],
+        inputPinsHash: null,
+        executionKey: null,
         status: 'todo',
+        skipped: false,
         attempts: 0,
         artifactIds: [],
         error: null,
@@ -118,8 +147,7 @@ function findInputRecords(artifacts, type, subjectId, projectScope = false) {
   const list = artifacts.filter((artifact) => artifact.type === type)
   if (list.length === 0) return []
   if (projectScope) {
-    const verified = list.filter((artifact) => artifact.status === 'verified')
-    return (verified.length > 0 ? verified : list).sort((a, b) =>
+    return list.slice().sort((a, b) =>
       `${a.subjectId}/${a.partitionKey}`.localeCompare(`${b.subjectId}/${b.partitionKey}`),
     )
   }
@@ -143,11 +171,13 @@ function pinOf(record) {
 
 async function resolveInputs(root, step, unit) {
   const artifacts = await listArtifacts(root)
+  const verifiedKeys = new Set((await listVerifiedArtifacts(root)).map((record) => artifactVersionKey(record)))
+  const isVerified = (record) => verifiedKeys.has(artifactVersionKey(record))
   const inputs = []
   const missing = []
   for (const input of step.inputs ?? []) {
     const records = findInputRecords(artifacts, input.type, unit.subjectId, step.scope === 'project')
-    const verifiedList = records.filter((record) => record.status === 'verified')
+    const verifiedList = records.filter(isVerified)
     const selected = verifiedList.length > 0 ? verifiedList : records
     if (selected.length === 0) {
       if (input.onMissing === 'block') missing.push(input.type)
@@ -209,7 +239,7 @@ async function updateSearchLedger(root, library, { project, step, unit, searches
 async function updateCoverage(root, library, { project, units, asOf }) {
   const artifacts = await listArtifacts(root)
   for (const target of project.targets ?? []) {
-    const subjectId = subjectIdFor('co', target.name)
+    const subjectId = subjectIdForTarget(target, project)
     const related = units.filter((unit) => unit.subjectId === subjectId)
     const total = related.length || 1
     const accepted = related.filter((unit) => ['accepted', 'accepted_with_exception'].includes(unit.status)).length
@@ -262,7 +292,7 @@ async function recordTriggerArtifact(root, library, { project, artifacts, asOf }
     root,
     library,
     type: 'risk.redflags',
-    subjectId: subjectIdFor('co', project.targets?.[0]?.name ?? project.name),
+    subjectId: subjectIdForTarget(project.targets?.[0] ?? { name: project.name }, project),
     partitionKey: '_default',
     output: {
       asOf,
@@ -281,7 +311,65 @@ async function recordTriggerArtifact(root, library, { project, artifacts, asOf }
     producedBy: { moduleId: 'system/trigger-engine', moduleVersion: '1.0.0', actor: 'system' },
     status: 'verified',
     actor: 'system',
+    // The trigger engine derives flags from already-recorded artifacts; it has
+    // no claims of its own, so the empty-evidence gate is explicitly waived here.
+    allowEmptyEvidence: true,
   })
+}
+
+/**
+ * Persist entity-resolution output back to the roster so downstream units use
+ * the resolved legal entity instead of the user's input name. The pure
+ * transform lives in entity-writeback.js; this hook owns persistence and
+ * in-memory target refresh.
+ */
+async function writebackEntityResolution({ root, library, project, units, identityRecords, emit }) {
+  if (!identityRecords?.length) return null
+  const roster = (await readArtifact(root, 'company.roster', 'project', '_default'))
+    ?? (await listArtifacts(root)).find((artifact) => artifact.type === 'company.roster' && artifact.subjectId === 'project')
+  if (!roster) return null
+  const resolution = await readArtifact(root, 'company.roster', 'project', ROSTER_RESOLUTION_PARTITION)
+  const result = applyIdentityToRoster({
+    roster,
+    identities: identityRecords,
+    existingResolution: resolution?.data ?? null,
+    actor: 'agent',
+    identityArtifactId: identityRecords[0]?.id ?? null,
+    at: nowIso(),
+  })
+  if (!result.changed) return result
+  await recordArtifact({
+    root,
+    library,
+    type: 'company.roster',
+    subjectId: 'project',
+    partitionKey: ROSTER_RESOLUTION_PARTITION,
+    id: resolution?.id,
+    expectedRev: resolution?.revision,
+    requestId: `entity-writeback:${project.projectId}:${result.contentHash}`,
+    output: {
+      asOf: project.engagement?.asOf ?? nowIso().slice(0, 10),
+      openQuestions: resolution?.openQuestions ?? [],
+      flags: resolution?.flags ?? [],
+      sourceCoverage: resolution?.sourceCoverage ?? {},
+      claims: [],
+      evidence: [],
+      data: result.data,
+    },
+    producedBy: { moduleId: 'system/entity-writeback', moduleVersion: '1.0.0', actor: 'system' },
+    status: 'verified',
+    actor: 'system',
+  })
+  project.targets = result.targets
+  for (const unit of units) {
+    if (!unit.target) continue
+    const next = result.targets.find((target) => target.entityId && target.entityId === unit.target.entityId)
+      ?? result.targets.find((target) => target.name === unit.target.name)
+    if (next) unit.target = next
+  }
+  await saveProject(project)
+  await emit?.({ type: 'roster/writeback', targets: result.targets.length, resolution: result.resolution.length })
+  return result
 }
 
 /**
@@ -305,6 +393,14 @@ export async function startRun({
   onStart = undefined,
 }) {
   if (!executor) throw new EquityError('missing_executor', '缺少执行器')
+  // Concurrency is not implemented yet. Silently accepting concurrency>1 would
+  // make callers believe writes are parallel-safe when the loop is serial, so
+  // reject it explicitly instead of ignoring the parameter (A3).
+  if (concurrency !== undefined && concurrency !== null && Number(concurrency) !== 1) {
+    throw new EquityError('concurrency_unsupported', '内核当前按单元串行执行；concurrency>1 尚未实现，请显式使用 1', {
+      concurrency,
+    })
+  }
   const runId = newId('run')
   const dir = runDir(root, runId)
   await ensureDir(dir)
@@ -312,15 +408,19 @@ export async function startRun({
   await writeSnapshot(dir, snapshot)
 
   const previous = resumeFrom ? await readJson(join(runDir(root, resumeFrom), 'units.json'), null) : null
-  const previousAccepted = new Set(
-    (previous?.units ?? []).filter((unit) => unit.status === 'accepted').map((unit) => unit.unitId),
+  const previousAccepted = new Map(
+    (previous?.units ?? [])
+      .filter((unit) => unit.status === 'accepted')
+      .map((unit) => [unit.unitId, unit]),
   )
   const units = generateUnits({ plan, project })
   for (const unit of units) {
     unit.runId = runId
-    if (previousAccepted.has(unit.unitId)) {
+    const prior = previousAccepted.get(unit.unitId)
+    if (prior) {
       unit.status = 'accepted'
       unit.skipped = true
+      unit.priorInputPinsHash = prior.inputPinsHash ?? null
     }
   }
   const order = units.map((unit) => unit.unitId)
@@ -403,13 +503,32 @@ export async function startRun({
         run.status = 'budget_exhausted'
         break
       }
-      if (unit.status === 'accepted') continue
       const step = plan.steps.find((candidate) => candidate.instanceId === unit.instanceId)
       const module = library.modules.get(step.moduleId)
       if (!module) {
         unit.status = 'failed'
         unit.error = `模块不存在：${step.moduleId}`
         continue
+      }
+      let resolved = null
+      if (unit.status === 'accepted') {
+        // Resume skip: only reuse an accepted unit when the pinned inputs still
+        // hash to the same value. An upstream content change must re-run it.
+        try {
+          resolved = await resolveInputs(root, step, unit)
+        } catch {
+          resolved = null
+        }
+        const priorPins = (resolved?.inputs ?? []).flatMap((input) => input.pinned ?? []).filter(Boolean)
+        const priorPinsHash = semanticHash(priorPins)
+        if (resolved && resolved.missing.length === 0 && unit.priorInputPinsHash && priorPinsHash !== unit.priorInputPinsHash) {
+          unit.status = 'todo'
+          unit.skipped = false
+        } else {
+          unit.inputPins = priorPins
+          unit.inputPinsHash = unit.priorInputPinsHash ?? priorPinsHash
+          continue
+        }
       }
       unit.status = 'running'
       unit.startedAt = nowIso()
@@ -419,7 +538,8 @@ export async function startRun({
       if (step.scope === 'project' || step.moduleId === 'builtin/deliverable') {
         await updateCoverage(root, library, { project, units, asOf: project.engagement?.asOf })
       }
-      const { inputs, missing } = await resolveInputs(root, step, unit)
+      if (!resolved) resolved = await resolveInputs(root, step, unit)
+      const { inputs, missing } = resolved
       if (missing.length > 0) {
         unit.status = 'blocked'
         unit.error = `上游未 verified：${missing.join(', ')}`
@@ -439,15 +559,21 @@ export async function startRun({
         continue
       }
       const inputArtifacts = inputs.flatMap((input) => input.records ?? [input.record]).filter(Boolean)
+      const pins = inputs.flatMap((input) => input.pinned ?? []).filter(Boolean)
+      unit.inputPins = pins
+      unit.inputPinsHash = semanticHash(pins)
+      unit.executionKey = unitKeyOf(unit, pins)
       const rendered = renderPrompt({
         module,
         project,
         step,
+        unit,
         params: step.params,
         inputArtifacts,
         budget: { remaining: null },
       })
       unit.attempts += 1
+      const attemptId = `${runId}:${unit.unitId}:${unit.attempts}`
       try {
         const result = await executor.execute({
           root,
@@ -469,11 +595,15 @@ export async function startRun({
         if (artifacts.length === 0) throw new EquityError('empty_result', '执行器没有返回底稿')
         unit.tokens = result.tokens ?? estimateTokens(rendered.text, artifacts)
         unit.toolCalls = result.toolCalls ?? (result.searches?.length ?? 0)
-        const pins = inputs.flatMap((input) => input.pinned ?? []).filter(Boolean)
         const evaluated = []
         for (const item of artifacts) {
           const output = item.output
-          const gateResult = evaluateGates({ module, output, outputType: item.type })
+          const gateResult = evaluateGates({
+            module,
+            output,
+            outputType: item.type,
+            context: { target: unit.target, project },
+          })
           evaluated.push({ ...item, gateResult })
         }
         const blocking = evaluated.filter((item) => item.gateResult.blocking)
@@ -492,15 +622,20 @@ export async function startRun({
               producedBy: {
                 moduleId: step.moduleId,
                 moduleVersion: step.moduleVersion,
+                instanceId: step.instanceId,
+                templateSha: step.templateSha,
+                renderedPromptSha: rendered.templateSha,
                 runId,
                 unitId: unit.unitId,
-                templateSha: rendered.templateSha,
+                attemptId,
                 actor: 'agent',
               },
               derivedFrom: pins,
               status: 'draft',
               checks: item.gateResult.checks,
               actor: 'agent',
+              requestId: `${attemptId}:${item.index}`,
+              attemptId,
             })
             recorded.push(record.id)
           }
@@ -522,6 +657,7 @@ export async function startRun({
           })
         } else {
           const recorded = []
+          const recordedRecords = []
           for (const item of evaluated) {
             const record = await recordArtifact({
               root,
@@ -534,17 +670,23 @@ export async function startRun({
               producedBy: {
                 moduleId: step.moduleId,
                 moduleVersion: step.moduleVersion,
+                instanceId: step.instanceId,
+                templateSha: step.templateSha,
+                renderedPromptSha: rendered.templateSha,
                 runId,
                 unitId: unit.unitId,
-                templateSha: rendered.templateSha,
+                attemptId,
                 actor: 'agent',
               },
               derivedFrom: pins,
               status: 'verified',
               checks: item.gateResult.checks,
               actor: 'agent',
+              requestId: `${attemptId}:${item.index}`,
+              attemptId,
             })
             recorded.push(record.id)
+            recordedRecords.push(record)
           }
           unit.artifactIds = recorded
           unit.status = 'accepted'
@@ -552,6 +694,17 @@ export async function startRun({
           unit.error = null
           unit.finishedAt = nowIso()
           await emit({ type: 'artifact/record', unitId: unit.unitId, artifactIds: recorded })
+          // Identity resolution must reach the roster before downstream units
+          // render. Persistence failures are visible but do not invalidate the
+          // accepted identity itself.
+          const identities = recordedRecords.filter((record) => record.type === 'company.identity')
+          if (identities.length > 0) {
+            try {
+              await writebackEntityResolution({ root, library, project, units, identityRecords: identities, emit })
+            } catch (error) {
+              await emit({ type: 'writeback/error', unitId: unit.unitId, error: error?.message ?? String(error) })
+            }
+          }
         }
         await updateSearchLedger(root, library, {
           project,
