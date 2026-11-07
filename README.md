@@ -125,13 +125,14 @@ assets/modules/<module-id>/
 # 1) 本地 link 安装
 dsh plugin --profile web add "link:<本仓库绝对路径>"
 
-# 2) 一键脚本（推荐）：备份 → 安装 → 去重 → 追加 patch 行 → 生成回滚
-pwsh -File tools/install-local.ps1
+# 2) 一键脚本（推荐）：备份 → 安装 → 去重 → 追加 patch 行
+#    Windows PowerShell 用 powershell；有 PowerShell 7 时也可用 pwsh
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-local.ps1
 ```
 
 `install-local.ps1` 会做五件事：备份 profile 的 `package.json` / `cordis.patch.yml`、建 pnpm shim、执行 link 安装、从 `dsh.profile.bundles` 移除本包避免与 patch 行重复、在 `cordis.patch.yml` 追加单行 `equity-diligence`。
 
-> 装完**刷新页面**；宿主未热加载时重启 DSH Web 进程。回滚：`pwsh -File tools/rollback-local.ps1`。
+> 装完**刷新页面**；宿主未热加载时重启 DSH Web 进程。回滚：`powershell -NoProfile -ExecutionPolicy Bypass -File tools/rollback-local.ps1`。
 
 ### 4.3 第一次调查
 
