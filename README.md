@@ -332,7 +332,7 @@ budget:
 | `forbiddenText` / `regex` | 禁止出现"无""没有"等把未查到写成否定的表述 |
 | `uniquePair` / `order` / `range` / `enumMember` | 去重、时序、区间、枚举 |
 
-`onFail` 三档：`block`（阻断该底稿验收）、`warn`（只记 warning）、省略即结构性默认阻断。
+`onFail` 四档：`block` / `issue`（阻断该底稿验收，进 `needs_human`）、`warn` / `attention`（只记 warning/issue，不阻断）、省略即结构性默认阻断。
 
 ### 10.3 交付验收（QA）
 
