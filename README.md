@@ -396,7 +396,7 @@ Host
 | `equity_review` | 列议题、提议复核；`decide` 用户专属 |
 | `equity_deliver` | build / verify / present |
 
-**命令**：`/equity new|status|compile|run|deliver|doctor`
+**命令**：`/equity new|projects|status|compile|run|deliver|doctor|help`
 
 **Web API**：`/api/equity/{projects,state,project,playbook,run,artifact,evidence,record,review,deliver,modules,doctor,file}`，仅 owner 可达，下载限制在 `05_交付` 内。
 
