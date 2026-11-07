@@ -74,6 +74,22 @@ test('gates: coverage counts search attempts when no explicit dimensions exist',
   assert.equal(computeCoverage(half), 0.5)
 })
 
+test('gates: dimension results count as coverage without a status field', () => {
+  const output = {
+    sourceCoverage: {
+      dimensions: [
+        { dimension: '基准覆盖', result: '覆盖 8 家子公司', gaps: '' },
+        { dimension: '境外', result: '覆盖 7 家境外实体', gaps: '' },
+        { dimension: '分类', result: '未覆盖第 9 类', gaps: '缺数据' },
+      ],
+    },
+    data: {},
+    claims: [],
+    evidence: [],
+  }
+  assert.equal(computeCoverage(output), 2 / 3)
+})
+
 test('gates: estimated ratio is bounded', async () => {
   const library = await freshLibrary()
   const business = {

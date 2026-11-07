@@ -93,7 +93,8 @@ function protocolPrompt({ rendered, schema, maxSteps }) {
 - 优先公告、监管、法院、交易所、工商、中基协、审计报告；媒体只作补充。
 - 打开来源后再摘录引文；引文必须是原文片段，不得改写。
 - 找不到就写 not_disclosed_after_search，并在 note 里写检索路径；不要编造。
-- 证据必须放进 result.evidence，claim 用 evidenceLinks 引用。
+- result.evidence 不得为空（至少 3 条），result.claims 不得为空；claim 用 evidenceLinks 引用 evidenceId。
+- data 里引用的每个 ev_/cl_ 必须能在 result.evidence/claims 中找到；不要只填 data。
 - 最终 result 必须符合下面的 JSON Schema；不要输出 schema 之外的根字段。
 
 最终输出 JSON Schema：

@@ -39,7 +39,17 @@ function materialEvidenceCoverage(output) {
 export function computeCoverage(output) {
   const dimensions = output?.sourceCoverage?.dimensions
   if (Array.isArray(dimensions) && dimensions.length > 0) {
-    const covered = dimensions.filter((dimension) => ['covered', 'partial'].includes(dimension.status)).length
+    // Module prompts commonly describe a dimension with `result`/`gaps`
+    // instead of a status enum; treat a non-empty result as covered unless it
+    // explicitly says it was not reviewed. An explicit `status` wins.
+    const covered = dimensions.filter((dimension) => {
+      if (dimension.status) return ['covered', 'partial'].includes(dimension.status)
+      if (dimension.covered === true) return true
+      if (typeof dimension.result === 'string' && dimension.result.trim() !== '') {
+        return !/未覆盖|未审查|missing|not[_ ]reviewed|none/i.test(dimension.result)
+      }
+      return false
+    }).length
     return covered / dimensions.length
   }
   const queries = output?.sourceCoverage?.queries
@@ -441,6 +451,9 @@ export function evaluateGates({ module, output, outputType = undefined, review =
     }
     if (gate.type === 'rule') {
       const rule = { ...(module.gates ?? {}), ...(gate.config ?? {}) }
+      // The declared coverage gate already computes coverage; do not repeat it
+      // through the rule gate just because rules/gates.json also has minCoverage.
+      if ((module.manifest.gates ?? []).some((candidate) => candidate.type === 'coverage')) delete rule.minCoverage
       const ruleChecks = checkRule(rule, output)
       if (ruleChecks.length > 0) {
         checks.push(...ruleChecks)

@@ -1,7 +1,8 @@
 # 从当前 web profile 回滚一级市场调查工作台。
 $ErrorActionPreference = 'Stop'
 
-$root = Split-Path -Parent $PSScriptRoot
+$scriptDir = if ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { (Get-Location).Path }
+$root = Split-Path -Parent $scriptDir
 $profileDir = Join-Path $env:USERPROFILE '.dsh\profiles\web'
 $backupDir = Join-Path $root '.backup'
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null

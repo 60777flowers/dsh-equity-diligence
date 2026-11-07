@@ -316,8 +316,13 @@ export class EquityService {
       library: this.requireLibrary(),
       playbook: opened.playbook,
       plan: compiled.plan,
-      agent: null,
-      config: { ...this.config, executor: previous.executor?.replace(/^composite:/, '') ?? this.config.executor },
+      agent: options.agent ?? null,
+      config: {
+        ...this.config,
+        executor: options.executor ?? previous.executor?.replace(/^composite:/, '') ?? this.config.executor,
+        provider: options.provider ?? this.config.provider,
+        model: options.model ?? this.config.model,
+      },
     })
     return this.startPlan({ opened, library: this.requireLibrary(), playbook: opened.playbook, plan: compiled.plan, executor, options: { resumeFrom: runId, wait: options.wait !== false } })
   }

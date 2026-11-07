@@ -38,6 +38,8 @@ export function createExecutor({
       reasoningEffort: config.reasoningEffort,
       temperature: config.temperature,
       maxTokens: config.maxTokens,
+      modelTimeoutMs: config.modelTimeoutMs,
+      agentTimeoutMs: config.agentTimeoutMs,
       library,
       cwd: root,
     }

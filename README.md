@@ -4,12 +4,12 @@
 
 面向一级股权市场从业者（PE / VC / CVC / 战投 / FA）的调查工作台，以 [DeepSeek Harness](https://github.com/deepseek-ai) 插件形式运行在 Web GUI 中：
 
-`25` 个内置模块（23 个专用方向 + 1 个通用兜底 + 1 个交付构建器） · `32` 类类型化底稿 · `33` 种勾稽算子 · `12` 条核查触发器 · 代码化交付验收
+`25` 个内置模块（23 个专用方向 + 1 个通用兜底 + 1 个交付构建器） · `32` 类类型化底稿 · `34` 种勾稽算子 · `12` 条核查触发器 · 代码化交付验收
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![status](https://img.shields.io/badge/status-v0.1.0%20%C2%B7%20software--complete-yellow)
 
-> **状态说明（请先读）**：软件已完整（内核、执行器、交付、UI 全链路可跑，34 项测试通过），但 **25 个模块的方法论均为 `draft`**，尚未经金融专家逐模块评审。本仓库不声称任何模块已 `stable`。见 [已知限制](#14-已知限制)。
+> **状态说明（请先读）**：软件已完整（内核、执行器、交付、UI 全链路可跑，36 项测试通过），但 **25 个模块的方法论均为 `draft`**，尚未经金融专家逐模块评审。本仓库不声称任何模块已 `stable`。见 [已知限制](#14-已知限制)。
 
 ---
 
@@ -60,7 +60,7 @@
 │         23 个专用方向 + 1 个通用兜底 + 1 个交付构建器 = 25    │
 ├───────────────────────────────────────────────────────────────┤
 │ 质量层  底稿类型化 → 勾稽可声明 → 交付代码验收                │
-│         32 类底稿 · 33 种勾稽算子 · 12 条核查触发器 · 代码验收│
+│         32 类底稿 · 34 种勾稽算子 · 12 条核查触发器 · 代码验收│
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -104,7 +104,7 @@ assets/modules/<module-id>/
 | 证据 | 结论里夹来源，无法核 | Claim–Evidence 账本，`quote` 必须逐字命中原文，原文 hash 快照不可变 |
 | 查不到 | 容易变成"无"或编一个 | 强制状态字段：`not_disclosed_after_search` 必须链到检索记录，不留空 |
 | 数据形状 | 一坨 Markdown | 32 类带 schema 的底稿，可被下游模块引用 |
-| 一致性 | 靠复查 | 33 种勾稽算子 + 交付 QA 阻断项 |
+| 一致性 | 靠复查 | 34 种勾稽算子 + 交付 QA 阻断项 |
 | 长任务 | 上下文一断就重来 | 断点恢复、幂等重跑、上游变更只标直接下游 stale |
 | 责任边界 | 说不清谁签的字 | 提议/裁决分离：Agent 只能 `propose`，`decide / signoff` 是用户专属动作 |
 
@@ -150,7 +150,7 @@ pwsh -File tools/install-local.ps1
 ```powershell
 node tools/validate-assets.mjs   # 32 类 / 25 模块 / 5 预设 静态校验与编译
 node tools/check.mjs             # 语法 + 资产 + 预设编译
-node --test tests/*.test.js      # 34 项测试（内核/门/管线/迁移/API/UI bundle/模块来源）
+node --test tests/*.test.js      # 36 项测试（内核/门/管线/迁移/API/UI bundle/模块来源）
 ```
 
 项目默认落在 `workspace/equity-projects/<slug>/`，可用 `root` 参数指定。
@@ -320,7 +320,7 @@ budget:
 
 ### 10.2 勾稽（Consistency）
 
-勾稽关系写在模块的 `rules/gates.json`，也可在项目级自定义。支持 33 种算子，例如：
+勾稽关系写在模块的 `rules/gates.json`，也可在项目级自定义。支持 34 种算子，例如：
 
 | 算子 | 用途 |
 |---|---|
@@ -406,7 +406,7 @@ Host
 诚实清单，按影响排序：
 
 1. **模块内容为 `draft`**：除 `investment-map` 外的 24 个模块（`author: ai-draft`，`origin: agent`）方法论由 AI 初稿生成，未经金融专家逐模块评审；`policy.exposure` 尤其只能当线索，不能当法律意见。
-2. **未做真实联网全量 smoke**：没有接入付费数据库与公告批量抓取；`private-agent` 的真实子代理路径、PDF/OCR 需要真实 provider 与凭据；离线 fixture 只验证结构、门与交付链。
+2. **真实联网 smoke 只做了单点**：native-loop/private-agent 已各跑过真实 web 检索与新易盛（Eoptolink）投资版图；private-agent 产出的新版图数据完整，但 `claims/evidence` 为空，被证据门正确判为 `needs_human`——**尚未得到 accepted 的真实投资底稿**；付费数据库、公告批量抓取、PDF/OCR 真实样本仍待补。
 3. **`native-loop` 是兜底**：JSON 动作协议不是原生 tool-calling，长任务效率低于 `private-agent`；生产建议优先 `private-agent`。
 4. **`7+N` 标绿按契约字面子串匹配**：收紧需先改契约。
 5. **`source.coverage` / `search.ledger` 的覆盖语义是 v1 近似**：深度项目应结合人工复核。

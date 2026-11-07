@@ -79,6 +79,28 @@ test('tools + API: create, compile, run, deliver through the same service', asyn
   assert.ok(artifact.evidence.length >= 2)
 })
 
+test('tools: undefined snapshot fields are removed before the JSON boundary', async () => {
+  const defs = []
+  const service = {
+    async state() {
+      return {
+        project: { projectId: 'p_test' },
+        runs: [{ runId: 'r1', status: 'partial', budget: undefined }],
+        counts: { total: 0, byStatus: {} },
+        stale: [],
+        issues: [],
+        readiness: {},
+      }
+    },
+  }
+  registerTools({ ctx: { tools: { register: (definition) => { defs.push(definition); return () => {} } } }, service })
+  const projectTool = defs.find((definition) => definition.name === 'equity_project')
+  const value = await projectTool.execute({ action: 'status', projectId: 'p_test' }, {})
+  assert.equal(value.ok, true)
+  assert.equal(Object.hasOwn(value.runs[0], 'budget'), false)
+  assert.equal(value.project.projectId, 'p_test')
+})
+
 test('client bundle: registers main, sidebar and turn-tail slots', async () => {
   const source = await readFile(join(import.meta.dirname, '..', 'client.js'), 'utf8')
   let loaded

@@ -17,6 +17,13 @@ const output = {
   render: (_args, value) => textResult(value),
 }
 
+function jsonSafe(value) {
+  // Tool outputs cross a strict JSON boundary. Service snapshots legitimately
+  // contain undefined/Date/NaN values; normalize them instead of failing the
+  // whole tool call with "value is not lossless JSON".
+  return JSON.parse(JSON.stringify(value))
+}
+
 function tool(name, description, parameters, execute) {
   return {
     name,
@@ -25,7 +32,7 @@ function tool(name, description, parameters, execute) {
     output,
     async execute(args, exec) {
       const value = await execute(args, exec)
-      return { ok: true, ...value }
+      return jsonSafe({ ok: true, ...value })
     },
   }
 }
@@ -163,8 +170,13 @@ export function registerTools({ ctx, service }) {
       if (args.action === 'pause') return { ...service.pause(args.runId), summary: `已请求暂停 ${args.runId}` }
       if (args.action === 'cancel') return { ...service.cancel(args.runId), summary: `已请求取消 ${args.runId}` }
       if (args.action === 'resume' || args.action === 'retry') {
-        const result = await service.resume(id, args.runId)
-        return { ...result, summary: `已恢复运行 ${result.runId}：${result.status}` }
+        const result = await service.resume(id, args.runId, {
+          agent: exec?.agent ?? null,
+          executor: args.executor,
+          provider: exec?.agent?.options?.provider,
+          model: exec?.agent?.options?.model,
+        })
+        return { ...result, summary: `已恢复运行 ${result.runId}：${result.status}（${result.executor}）` }
       }
       if (args.action === 'start') {
         const result = await service.run(id, {

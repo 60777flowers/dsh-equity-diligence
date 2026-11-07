@@ -1,8 +1,9 @@
-# 安装一级市场调查工作台到当前 web profile。
+﻿# 安装一级市场调查工作台到当前 web profile。
 # 可重复执行；每一步先备份 profile 配置。
 $ErrorActionPreference = 'Stop'
 
-$root = Split-Path -Parent $PSScriptRoot
+$scriptDir = if ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { (Get-Location).Path }
+$root = Split-Path -Parent $scriptDir
 $profileDir = Join-Path $env:USERPROFILE '.dsh\profiles\web'
 $backupDir = Join-Path $root '.backup'
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
@@ -11,13 +12,13 @@ Copy-Item (Join-Path $profileDir 'package.json') (Join-Path $backupDir "package.
 Copy-Item (Join-Path $profileDir 'cordis.patch.yml') (Join-Path $backupDir "cordis.patch.yml.$stamp-install") -Force
 
 # dsh plugin 需要 PATH 中有 pnpm；优先使用 corepack，不修改全局安装。
-$tools = Join-Path $root '.tools'
-New-Item -ItemType Directory -Force -Path $tools | Out-Null
-$pnpmShim = Join-Path $tools 'pnpm.cmd'
+$toolDir = Join-Path $root '.tools'
+New-Item -ItemType Directory -Force -Path $toolDir | Out-Null
+$pnpmShim = Join-Path $toolDir 'pnpm.cmd'
 if (-not (Test-Path $pnpmShim)) {
   Set-Content -Path $pnpmShim -Value "@echo off`r`ncorepack pnpm %*" -Encoding ASCII
 }
-$env:PATH = "$tools;$env:PATH"
+$env:PATH = "$toolDir;$env:PATH"
 
 Write-Host "Installing $root -> profile $profileDir"
 dsh plugin --profile web add "link:$root"
